@@ -68,7 +68,7 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 .dn-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 .dn-active-day{background:#fffbeb!important;color:#d97706!important;border-color:#d97706!important;}
 .dn-active-night{background:#1b2a4a!important;color:#e2e8f0!important;border-color:#1b2a4a!important;}
-.dn-active-hm{background:#4a1d96!important;color:#fff!important;border-color:#4a1d96!important;}
+/*.dn-active-hm{background:#4a1d96!important;color:#fff!important;border-color:#4a1d96!important;}*/
 .comp-view-btn{padding:4px 11px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:10px;font-weight:600;color:var(--muted);transition:all .15s;margin-left:4px;}
 .comp-view-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
@@ -657,17 +657,22 @@ function initMap(){
     {
       file: 'GEOJSON/ALL_TREECANOPY.geojson',
       name: '🌿 Tree Canopy',
-      style: { color:'#2e7d32', weight:1, fillColor:'#a5d6a7', fillOpacity:0.30, opacity:0.6 }
+      style: { color:'#2e7d32', weight:1, fillColor:'#a5d6a7', fillOpacity:0.30, opacity:0.6, interactive:false }
     },
     {
       file: 'GEOJSON/Forest%20(1).geojson',
       name: '🌳 Forest',
-      style: { color:'#1b5e20', weight:1, fillColor:'#388e3c', fillOpacity:0.40, opacity:0.7 }
+      style: { color:'#1b5e20', weight:1, fillColor:'#388e3c', fillOpacity:0.40, opacity:0.7, interactive:false }
+    },
+    {
+      file: 'GEOJSON/ALL_BUILDINGS_wgs84.geojson',
+      name: '🏢 Buildings',
+      style: { color:'#737373', weight:1, fillColor:'#FFFFFF', fillOpacity:1.00, opacity:1.0, interactive:false}
     },
     {
       file: 'GEOJSON/BEAM_Hotspots_display.geojson',
       name: '🔴 Hotspot Zones',
-      style: { color:'#c62828', weight:1.5, fillColor:'#ef9a9a', fillOpacity:0.25, opacity:0.8 }
+      style: { color:'#c62828', weight:1.5, fillColor:'#ef9a9a', fillOpacity:0.25, opacity:0.8, interactive:false}
     }
   ];
 
@@ -845,8 +850,8 @@ function renderCharts(cont,ms){
       : `<label>Period:</label>
          <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
          <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
-         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>`}
-    <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🔲 Heatmap</button>
+         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>`
+      }
   </div>`;
 
   // If heatmap mode: show 4-variable heatmaps for this station, then stop
@@ -1079,7 +1084,6 @@ function renderWind(cont,ms){
       <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
       <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
       <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
-      <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🔲 Heatmap</button>
     </div>
     <div class="chart-card">
       <div class="chart-title">Wind Speed — ${isAnnual?'Monthly Average':'Daily ('+MONTHS[ms-1]+')'}</div>
@@ -1208,7 +1212,6 @@ function renderOverall(cont,ms){
   // Sub-tab row
   cont.innerHTML=`
     <div class="sub-tabs">
-      <button class="sub-tab ${overallSubView==='heatmap'?'active':''}" onclick="setOverallSub('heatmap')">🔲 Heatmaps</button>
       <button class="sub-tab ${overallSubView==='boxplot'?'active':''}" onclick="setOverallSub('boxplot')">📊 Boxplot</button>
     </div>
     <div id="overallContent"></div>`;
