@@ -87,6 +87,7 @@ To update the dashboard, replace `index.html` with the new version and push to `
 - **GitHub deployment:** Joie Lim (NUS BEAM Digital Twin team)
 - **Project:** CoolNUS-BEAM (Baselining - Evaluating - Action - Monitoring), National University of Singapore
 
+CoolNUS-BEAM is funded by the National University of Singapore through the Campus Sustainability initiative and supported by the University Campus Infrastructure (UCI) and the Office of the Deputy President – Research & Technology.
 ---
 
 ## License
