@@ -9,7 +9,7 @@ An interactive, browser-based dashboard for exploring microclimate data from 40 
 
 ## Overview
 
-This dashboard is part of the **BEAM (Built Environment and Microclimate) project** at the National University of Singapore. It visualises 2025 data collected from a network of ground-level, rooftop, and 3-axis rooftop weather stations distributed across campus.
+This dashboard is part of the **CoolNUS-BEAM (Baselining - Evaluating - Action - Monitoring) project** at the National University of Singapore. It visualises 2025 data collected from a network of ground-level, rooftop, and 3-axis rooftop weather stations distributed across campus.
 
 No installation is required, the dashboard runs entirely in the browser and loads data from the included GEOJSON files.
 
@@ -83,11 +83,10 @@ To update the dashboard, replace `index.html` with the new version and push to `
 
 ## Acknowledgements
 
-- **Dashboard development:** Marcel Ignatius (NUS BEAM Project), with AI assistance from [Anthropic Claude](https://www.anthropic.com)
-- **GitHub deployment:** Joie Lim (NUS BEAM Digital Twin team)
+- **Dashboard development:** Marcel Ignatius (Co_PI CoolNUS-BEAM), with AI assistance from [Anthropic Claude](https://www.anthropic.com)
+- **GitHub deployment:** Joie Lim (Research Assistant, Digital Twin)
 - **Project:** CoolNUS-BEAM (Baselining - Evaluating - Action - Monitoring), National University of Singapore
-
-CoolNUS-BEAM is funded by the National University of Singapore through the Campus Sustainability initiative and supported by the University Campus Infrastructure (UCI) and the Office of the Deputy President – Research & Technology.
+- **CoolNUS-BEAM** is funded by the National University of Singapore through the Campus Sustainability initiative and supported by the University Campus Infrastructure (UCI) and the Office of the Deputy President – Research & Technology.
 ---
 
 ## License
