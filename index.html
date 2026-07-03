@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>BEAM Weather Station Dashboard — NUS Campus 2025</title>
+<title>BEAM Weather Station Dashboard — NUS Campus 2024–2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -32,11 +32,13 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 .var-btn{padding:5px 13px;border-radius:20px;border:2px solid transparent;background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all .15s;}
 .var-btn:hover{border-color:var(--blue);color:var(--blue);}
 .var-btn.active{color:#fff;}
+.var-btn.disabled{opacity:.3;pointer-events:none;}
 .var-btn[data-var="AirTemp"].active{background:#c62828;border-color:#c62828;}
 .var-btn[data-var="RelHum"].active{background:#00695c;border-color:#00695c;}
 .var-btn[data-var="Wind"].active{background:#1565c0;border-color:#1565c0;}
 .var-btn[data-var="GlobalRad"].active{background:#e65100;border-color:#e65100;}
 .var-btn[data-var="Overall"].active{background:#4a1d96;border-color:#4a1d96;}
+.var-btn[data-var="Canopy"].active{background:#2e7d32;border-color:#2e7d32;}
 .month-select{margin-left:auto;padding:5px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:#fff;cursor:pointer;}
 
 .layout{display:grid;grid-template-columns:35% 1fr;flex:1;min-height:0;}
@@ -68,7 +70,7 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 .dn-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 .dn-active-day{background:#fffbeb!important;color:#d97706!important;border-color:#d97706!important;}
 .dn-active-night{background:#1b2a4a!important;color:#e2e8f0!important;border-color:#1b2a4a!important;}
-/*.dn-active-hm{background:#4a1d96!important;color:#fff!important;border-color:#4a1d96!important;}*/
+.dn-active-hm{background:#4a1d96!important;color:#fff!important;border-color:#4a1d96!important;}
 .comp-view-btn{padding:4px 11px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:10px;font-weight:600;color:var(--muted);transition:all .15s;margin-left:4px;}
 .comp-view-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
 
@@ -107,6 +109,12 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 .compare-btn{padding:5px 13px;border-radius:20px;border:2px solid #2e7d32;background:#fff;cursor:pointer;font-size:12px;font-weight:700;color:#2e7d32;transition:all .15s;}
 .compare-btn.active{background:#2e7d32;color:#fff;}
 .compare-btn:hover{background:#e8f5e9;}
+/* Year toggle */
+.yr-btn{padding:5px 11px;border-radius:20px;border:2px solid #1b2a4a;background:#fff;cursor:pointer;font-size:12px;font-weight:700;color:#1b2a4a;transition:all .15s;}
+.yr-btn.active{background:#1b2a4a;color:#fff;}
+.yr-btn:hover{background:#e8eefb;}
+.yr-btn.active:hover{background:#1b2a4a;}
+.yr-btn.loading{opacity:.5;pointer-events:none;}
 .cmp-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:14px;color:#fff;font-size:11px;font-weight:700;}
 .cmp-chip button{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.8);font-size:13px;line-height:1;padding:0;}
 .cmp-chip button:hover{color:#fff;}
@@ -124,6 +132,32 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 .leg-circle{width:14px;height:14px;border-radius:50%;border:2px solid #fff;flex-shrink:0;}
 .leg-rect{width:16px;height:12px;border-radius:3px;border:2px solid #fff;flex-shrink:0;}
 .leg-rect3{width:16px;height:12px;border-radius:3px;border:3px solid #fff;outline:1.5px solid rgba(0,0,0,.3);flex-shrink:0;}
+.leg-tri{position:relative;width:16px;height:14px;flex-shrink:0;}
+.leg-tri::before{content:'';position:absolute;top:0;left:0;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #fff;}
+.leg-tri::after{content:'';position:absolute;top:2px;left:2px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #1b5e20;}
+
+/* Tree Canopy / TCM-SVI tab */
+.tier-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:14px;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
+.tier-STRONG{background:#e8f5e9;color:#1b5e20;border:1.5px solid #2e7d32;}
+.tier-MODERATE{background:#fff8e1;color:#8d6300;border:1.5px solid #f59e0b;}
+.tier-WEAK{background:#fdecea;color:#a12622;border:1.5px solid #c62828;}
+.tcm-banner{border-radius:8px;padding:8px 12px;font-size:11px;line-height:1.5;margin-bottom:10px;}
+.tcm-banner-excluded{background:#fdecea;border:1.5px solid #c62828;color:#7a1a17;}
+.tcm-banner-info{background:#fff8e1;border:1px solid #f0c36d;color:#6b4c00;}
+.tcm-banner-note{background:#f0f2f7;border:1px solid var(--border);color:var(--muted);}
+.tcm-photo-toggle{display:flex;gap:6px;margin-bottom:8px;}
+.tcm-photo-btn{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);}
+.tcm-photo-btn.active{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+.tcm-photo-wrap{width:100%;border-radius:8px;overflow:hidden;background:#0b1220;display:flex;align-items:center;justify-content:center;min-height:120px;}
+.tcm-photo-wrap img{width:100%;display:block;}
+.tcm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.tcm-img-card img{width:100%;border-radius:6px;display:block;border:1px solid var(--border);}
+.tcm-img-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tcm-sub-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.tcm-tier-table{width:100%;border-collapse:collapse;font-size:11px;}
+.tcm-tier-table th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:4px 6px;border-bottom:2px solid var(--border);}
+.tcm-tier-table td{padding:4px 6px;border-bottom:1px solid #eef1f7;}
+.tcm-tier-table tr.excluded-row{background:#fdecea;}
 </style>
 </head>
 <body>
@@ -150,7 +184,7 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
   <div>
     <div class="htitle">NUS Campus Weather Station Network</div>
     <div class="beam-expand">Baselining · Evaluating · Action · Monitoring</div>
-    <div class="hsub">40 Stations · Hourly Data · 2025</div>
+    <div class="hsub">40 Stations · Hourly Data · <span id="hsubYear">2025</span></div>
   </div>
 </header>
 
@@ -158,11 +192,17 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
   <button class="home-btn" onclick="showHome()">🏠 Home</button>
   <button class="compare-btn" id="compareBtn" onclick="toggleCompare()">⚖ Compare</button>
   <div class="sep"></div>
+  <span style="font-size:10px;color:var(--muted);font-weight:700">YEAR:</span>
+  <button class="yr-btn" data-year="2024" onclick="setYear(2024)">2024</button>
+  <button class="yr-btn active" data-year="2025" onclick="setYear(2025)">2025</button>
+  <button class="yr-btn" data-year="2026" onclick="setYear(2026)">2026</button>
+  <div class="sep"></div>
   <span style="font-size:10px;color:var(--muted);font-weight:700">VARIABLE:</span>
   <button class="var-btn active" data-var="AirTemp">🌡 Air Temp</button>
   <button class="var-btn" data-var="RelHum">💧 Rel. Humidity</button>
   <button class="var-btn" data-var="Wind">🌬 Wind</button>
   <button class="var-btn" data-var="GlobalRad">☀ Solar Radiation</button>
+  <button class="var-btn" data-var="Canopy">🌳 Tree Canopy</button>
   <button class="var-btn" data-var="Overall">⬛ Overall</button>
   <select class="month-select" id="monthSel">
     <option value="0">Annual View</option>
@@ -199,6 +239,7 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 </div>
 
 <script>
+// BEAM dashboard — multi-year (2024–2026) build, updated 2026-07-03
 // ── Constants ──────────────────────────────────────────────────────────────
 const MONTHS    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS_IN_M = [31,28,31,30,31,30,31,31,30,31,30,31];
@@ -225,16 +266,33 @@ const VARS = {
                yMin:0,    yMax:1000, cbTicks:[0,200,400,600,800,1000]},
 };
 
+// ── Multi-year data (2024–2026). WS/HM/WR always alias the active year. ────
+const YEARS=[2024,2025,2026];
+const DEFAULT_YEAR=2025;
+const YEAR_COLORS={2024:'#7b1fa2',2025:'#1a73e8',2026:'#e65100'};
+const YD={2024:{},2025:{},2026:{}};   // per-year {WS,HM,WR}, lazy-loaded
+let activeYear=DEFAULT_YEAR;
+let YEAR_SPAN={};                     // {year: 'Apr–Dec 2024'} from META.coverage
 let WS=null, HM=null, WR=null, META=null;
-let activeVar='AirTemp', activeStation=null, dnMode='a';
-let charts={}, mapInstance=null, markers={};
+let GR=null;                                // Greenery network (2025 Air Temp only, 24 stations)
+let TCM=null, SVI=null, TCMVALID=null;      // Tree canopy shade model + SVI segmentation data
+const TCM_BASE='TCM/';
+const TCM_DATA_CACHE={};                    // lazy per-station tcm_data/{id}_hourly_month.json cache
+let activeVar='AirTemp', activeStation=null, activeGreenery=null, dnMode='a';
+let charts={}, mapInstance=null, markers={}, grMarkers={};
 let homeVisible=false, overallSubView='heatmap', compView='bar';
-let compareMode=false, compareStations=[];
-const CMP_COLORS=['#1a73e8','#e65100','#2e7d32'];
-const CMP_ALPHAS=['rgba(26,115,232,0.15)','rgba(230,81,0,0.15)','rgba(46,125,50,0.15)'];
+let canopyPhotoMode='blended';              // real | segmented | blended — per-station photo toggle
+let compareMode=false, compareStations=[], compareGreenery=[];
+const MAX_CMP=8;
+const CMP_COLORS=['#1a73e8','#e65100','#2e7d32','#7b1fa2','#c2185b','#00838f','#f9a825','#5d4037'];
+const CMP_ALPHAS=CMP_COLORS.map(c=>{
+  const n=parseInt(c.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},0.15)`;
+});
 let yRangeCache={};  // {var: {min, max}} — fixed for chart y-axis
 let hmRangeCache={}; // {var: {min, max}} — global for heatmap colors
 let refreshAllMarkers=()=>{}; // assigned inside initMap once map is ready
+let refreshGreeneryMarkers=()=>{}; // assigned inside initMap once map is ready
 
 const WS_LOCATIONS={
   WS01:'Lamp post - CP2A in front E3A',
@@ -280,20 +338,99 @@ const WS_LOCATIONS={
 };
 
 // ── Load ───────────────────────────────────────────────────────────────────
+const fetchJson=url=>fetch(url).then(r=>{if(!r.ok)throw new Error(`${url}: ${r.status}`);return r.json();});
+
+async function ensureYear(y){
+  const slot=YD[y];
+  if(!slot._ws) slot._ws=fetchJson(`GEOJSON/beam_ws_data_${y}.json`).then(d=>slot.WS=d);
+  if(!slot._hm) slot._hm=fetchJson(`GEOJSON/beam_heatmap_data_${y}.json`).then(d=>slot.HM=d);
+  if(!slot._wr) slot._wr=fetchJson(`GEOJSON/beam_windrose_data_${y}.json`).then(d=>slot.WR=d);
+  await Promise.all([slot._ws,slot._hm,slot._wr]);
+  return slot;
+}
+
+async function setYear(y){
+  if(y===activeYear||!YEARS.includes(y))return;
+  const btn=document.querySelector(`.yr-btn[data-year="${y}"]`);
+  btn?.classList.add('loading');
+  try{
+    const slot=await ensureYear(y);
+    activeYear=y; WS=slot.WS; HM=slot.HM; WR=slot.WR;
+    setupRanges();
+  }catch(e){
+    console.error('Failed to load year',y,e);
+    btn?.classList.remove('loading');
+    return;
+  }
+  btn?.classList.remove('loading');
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('active',+b.dataset.year===y));
+  const hs=document.getElementById('hsubYear'); if(hs)hs.textContent=YEAR_SPAN[y]||y;
+  updateMonthOptions();
+  if(homeVisible)return;
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
+  if(activeStation) renderAll();
+}
+
+// Grey out months the active year has no data for (2024: Jan–Mar, 2026: Jul–Dec)
+function updateMonthOptions(){
+  const cov=META?.coverage?.[String(activeYear)]||{};
+  const present=new Set();
+  Object.values(cov).forEach(c=>(c.months||[]).forEach(m=>present.add(m)));
+  document.querySelectorAll('#monthSel option').forEach(o=>{
+    const v=+o.value;
+    o.disabled=v>0&&present.size>0&&!present.has(v);
+  });
+  const sel=document.getElementById('monthSel');
+  if(sel.selectedOptions[0]?.disabled){ sel.value='0'; }
+}
+
 async function loadData(){
   try{
-    document.getElementById('loadSub').textContent='Loading station data (1/4)…';
-    WS=await fetch('GEOJSON/beam_ws_data.json').then(r=>r.json());
-    document.getElementById('loadSub').textContent='Loading heatmap data (2/4)…';
-    HM=await fetch('GEOJSON/beam_heatmap_data.json').then(r=>r.json());
-    document.getElementById('loadSub').textContent='Loading wind & meta (3/4)…';
-    [WR, META]=await Promise.all([
-      fetch('GEOJSON/beam_windrose_data.json').then(r=>r.json()),
-      fetch('GEOJSON/beam_meta.json').then(r=>r.json())
-    ]);
+    document.getElementById('loadSub').textContent='Loading station data (1/5)…';
+    META=await fetchJson('GEOJSON/beam_meta_years.json');
+    YEARS.forEach(y=>{
+      const months=new Set();
+      Object.values(META.coverage?.[String(y)]||{}).forEach(c=>(c.months||[]).forEach(m=>months.add(m)));
+      const mi=Math.min(...months),ma=Math.max(...months);
+      YEAR_SPAN[y]=months.size?`${MONTHS[mi-1]}–${MONTHS[ma-1]} ${y}`:String(y);
+    });
+    document.getElementById('loadSub').textContent='Loading heatmap data (2/5)…';
+    const slot=await ensureYear(DEFAULT_YEAR);
+    WS=slot.WS; HM=slot.HM; WR=slot.WR;
+    const hs=document.getElementById('hsubYear'); if(hs)hs.textContent=YEAR_SPAN[activeYear]||activeYear;
+    updateMonthOptions();
+    document.getElementById('loadSub').textContent='Loading wind & meta (3/5)…';
+    try{
+      GR=await fetch('GEOJSON/beam_greenery_data.json').then(r=>r.json());
+    }catch(e){
+      console.warn('Greenery station data unavailable:', e);
+      GR=null;
+    }
+    document.getElementById('loadSub').textContent='Loading tree canopy shade model (4/5)…';
+    try{
+      [TCM, SVI, TCMVALID]=await Promise.all([
+        fetch('TCM/manifest.json').then(r=>r.json()),
+        fetch('TCM/svi_manifest.json').then(r=>r.json()),
+        fetch('TCM/validation_summary.json').then(r=>r.json())
+      ]);
+    }catch(e){
+      console.warn('TCM/SVI data unavailable — Tree Canopy tab will show an empty state:', e);
+      TCM=null; SVI=null; TCMVALID=null;
+    }
+    document.getElementById('loadSub').textContent='Rendering (5/5)…';
     document.getElementById('loadingOverlay').style.display='none';
     setupRanges();
     initMap();
+    // Prefetch the other years' monthly/daily data in the background so the
+    // year toggle and year-comparison charts respond instantly. Heatmap and
+    // windrose files stay lazy (loaded on first switch to that year).
+    YEARS.filter(y=>y!==activeYear).forEach(y=>{
+      const slot=YD[y];
+      if(!slot._ws) slot._ws=fetchJson(`GEOJSON/beam_ws_data_${y}.json`)
+        .then(d=>{slot.WS=d; if(activeStation&&!compareMode&&!homeVisible)renderAll();})
+        .catch(e=>{console.warn('Prefetch failed for',y,e); slot._ws=null;});
+    });
   }catch(e){
     document.getElementById('loadSub').textContent='Error: '+e.message;
   }
@@ -333,8 +470,10 @@ function toggleCompare(){
     overallBtn.style.pointerEvents=compareMode?'none':'';
   }
   if(!compareMode){
-    compareStations=[];
-    if(mapInstance) Object.keys(markers).forEach(s=>markers[s].setIcon(makeIcon(s,s===activeStation)));
+    compareStations=[]; compareGreenery=[];
+    setVarButtonsForGreenery(false);
+    refreshAllMarkers(); // makeIcon lives inside initMap's closure — use the exported refresher
+    refreshGreeneryMarkers();
     showCharts(); if(activeStation) renderAll();
   } else {
     // Switch away from Overall if currently selected
@@ -344,9 +483,12 @@ function toggleCompare(){
       firstBtn?.classList.add('active');
       activeVar='AirTemp';
     }
-    compareStations=[];
+    compareStations=[]; compareGreenery=[];
     if(activeStation) compareStations.push(activeStation);
-    if(mapInstance) Object.keys(markers).forEach(s=>markers[s].setIcon(makeIcon(s,false)));
+    refreshAllMarkers(); // compare colors are applied inside markerHtml via compareStations
+    if(activeGreenery){ activeGreenery=null; }
+    setVarButtonsForGreenery(false);
+    refreshGreeneryMarkers();
     showCharts(); renderCompare();
   }
 }
@@ -356,6 +498,7 @@ function renderCompare(){
   Object.values(charts).forEach(c=>c.destroy?.());charts={};
   showCharts();
   const panel=document.getElementById('rightPanel');
+  if(activeVar==='Canopy'){ renderCompareCanopy(panel); return; }
   const ms=+document.getElementById('monthSel').value;
   const isWind=activeVar==='Wind';
   const vi=VARS[activeVar==='Overall'?'AirTemp':isWind?'WindSpeed':activeVar];
@@ -368,7 +511,7 @@ function renderCompare(){
     panel.innerHTML=`<div class="no-sel">
       <div style="font-size:32px;margin-bottom:10px">⚖</div>
       <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active</div>
-      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to 3 stations on the map to compare them. Use the Variable buttons above to switch variables.</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} stations on the map to compare them. Use the Variable buttons above to switch variables.</div>
     </div>`;
     return;
   }
@@ -398,23 +541,20 @@ function renderCompare(){
 
   const wrLegendHtml=WR_LABELS.map((l,i)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[i]}"></div>${l}</div>`).join('');
 
+  const wrCols=Math.min(Math.max(compareStations.length,2),4);
   const windRoseCards=isWind?`
     <div class="chart-card">
       <div class="chart-title">Wind Rose — ${ms===0?'Annual':MONTHS[ms-1]} · ${modeNote}</div>
       <div class="chart-sub">16 direction bins · Speed-binned frequency</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">
-        ${[0,1,2].map(i=>{
-          const sid=compareStations[i];
-          return sid
-            ? `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-                <div style="font-size:11px;font-weight:700;color:${CMP_COLORS[i]}">${sid}</div>
-                <canvas id="wr_cmp_${i}" style="display:block"></canvas>
-                <div class="wr-legend-v" style="font-size:9px">
-                  ${WR_LABELS.map((l,j)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[j]}"></div>${l}</div>`).join('')}
-                </div>
-               </div>`
-            : `<div style="border:1.5px dashed #e2e8f0;border-radius:8px;min-height:160px;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:11px">Empty</div>`;
-        }).join('')}
+      <div style="display:grid;grid-template-columns:repeat(${wrCols},1fr);gap:8px;margin-top:8px">
+        ${compareStations.map((sid,i)=>`
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="font-size:11px;font-weight:700;color:${CMP_COLORS[i]}">${sid}</div>
+              <canvas id="wr_cmp_${i}" style="display:block"></canvas>
+              <div class="wr-legend-v" style="font-size:9px">
+                ${WR_LABELS.map((l,j)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[j]}"></div>${l}</div>`).join('')}
+              </div>
+            </div>`).join('')}
       </div>
     </div>`
   :'';
@@ -423,7 +563,7 @@ function renderCompare(){
     <div class="cmp-panel-hdr">
       <div style="font-size:12px;font-weight:700;color:#7dd3fc">⚖ Comparing Stations</div>
       ${chips}
-      <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<3?`(click map to add — ${3-compareStations.length} slot${3-compareStations.length===1?'':'s'} left)`:'<span style="color:#f59e0b">Max 3 stations reached</span>'}</span>
+      <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareStations.length} slot${MAX_CMP-compareStations.length===1?'':'s'} left)`:`<span style="color:#f59e0b">Max ${MAX_CMP} stations reached</span>`}</span>
       ${compareStations.length>0?`<button type="button" id="clearCmpBtn" style="margin-left:8px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✕ Clear All</button>`:''}
 
     </div>
@@ -437,13 +577,13 @@ function renderCompare(){
 
     <div class="chart-card">
       <div class="chart-title">${vi.label} — Monthly Trend Comparison</div>
-      <div class="chart-sub">${modeNote} · Jan–Dec 2025</div>
+      <div class="chart-sub">${modeNote} · ${YEAR_SPAN[activeYear]||activeYear}</div>
       <div class="cmp-legend-row">${legendItems}</div>
       <div class="chart-wrap" style="height:234px"><canvas id="cmp_monthly"></canvas></div>
     </div>
 
     ${ms===0?`<div class="chart-card">
-      <div class="chart-title">${vi.label} — Daily Comparison (365 days)</div>
+      <div class="chart-title">${vi.label} — Daily Comparison (${YEAR_SPAN[activeYear]||activeYear})</div>
       <div class="chart-sub">${modeNote}</div>
       <div class="cmp-legend-row">${legendItems}</div>
       <div class="chart-wrap" style="height:208px"><canvas id="cmp_daily"></canvas></div>
@@ -548,7 +688,7 @@ function renderCompare(){
     type:'bar',
     data:{labels:sumLabels, datasets:[{data:sumData,
       backgroundColor:compareStations.map((_,i)=>CMP_COLORS[i]),
-      borderRadius:6, barThickness:40}]},
+      borderRadius:6, maxBarThickness:40}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},datalabels:{display:false},
         tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
@@ -563,7 +703,7 @@ function renderCompare(){
     requestAnimationFrame(()=>{
       const firstCanvas=document.getElementById('wr_cmp_0');
       const parentW=firstCanvas?.parentElement?.parentElement?.offsetWidth||300;
-      const sz=Math.min(Math.max(Math.floor((parentW-40)/3)-8,100),180);
+      const sz=Math.min(Math.max(Math.floor((parentW-40)/wrCols)-8,100),180);
       compareStations.forEach((sid,i)=>{
         const canvas=document.getElementById(`wr_cmp_${i}`);
         if(!canvas)return;
@@ -580,6 +720,247 @@ function renderCompare(){
   }
 }
 
+// ── Compare mode: Tree Canopy / Shade side-by-side ─────────────────────────
+function renderCompareCanopy(panel){
+  const chips=compareStations.map((sid,i)=>`
+    <span class="cmp-chip" style="background:${CMP_COLORS[i]}">
+      ${sid} <span style="font-size:10px;opacity:.8">${WS.stations[sid]?.type}</span>
+      <button type="button" data-remove="${sid}">✕</button>
+    </span>`).join('');
+
+  if(!compareStations.length){
+    panel.innerHTML=`<div class="no-sel">
+      <div style="font-size:32px;margin-bottom:10px">🌳</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active — Tree Canopy</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} stations on the map to compare their shade model side by side.</div>
+    </div>`;
+    return;
+  }
+
+  if(!TCM || !SVI || !TCMVALID){
+    panel.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load.</div></div>`;
+    return;
+  }
+
+  const cards=compareStations.map((sid,i)=>{
+    const tcmRec=TCM[sid], sviRec=SVI[sid];
+    if(!sviRec){
+      return `<div style="border:1.5px dashed #e2e8f0;border-radius:8px;padding:14px;text-align:center;color:#94a3b8;font-size:11px">
+        <div style="font-weight:700;color:${CMP_COLORS[i]};margin-bottom:4px">${sid}</div>No SVI/TCM data for this station</div>`;
+    }
+    if(!tcmRec){
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-weight:700;color:${CMP_COLORS[i]};margin-bottom:6px">${sid} <span style="font-size:10px;color:var(--muted);font-weight:400">roof reference — not modeled</span></div>
+        <img src="${TCM_BASE+sviRec.blended}" style="width:100%;border-radius:6px" alt="${sid} blended segmentation"/>
+      </div>`;
+    }
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-weight:700;color:${CMP_COLORS[i]}">${sid}</span>
+        ${tierBadgeHtml(tcmRec.validation_tier)}
+        ${tcmRec.excluded?'<span style="font-size:9px;color:#c62828;font-weight:700">⚠ EXCLUDED</span>':''}
+      </div>
+      <img src="${TCM_BASE+tcmRec.segmentation.blended}" style="width:100%;border-radius:6px;margin-bottom:6px" alt="${sid} blended segmentation"/>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Canopy reduction: <b style="color:var(--text)">${tcmRec.canopy_reduction_pct}%</b> · rank ${tcmRec.shade_rank}</div>
+      <img src="${TCM_BASE+tcmRec.tcm_charts.heatmap_transmittance}" style="width:100%;border-radius:6px" alt="${sid} transmittance heatmap"/>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML=`
+    <div class="cmp-panel-hdr">
+      <div style="font-size:12px;font-weight:700;color:#7dd3fc">🌳 Comparing Tree Canopy / Shade</div>
+      ${chips}
+      <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareStations.length} slot${MAX_CMP-compareStations.length===1?'':'s'} left)`:`<span style="color:#f59e0b">Max ${MAX_CMP} stations reached</span>`}</span>
+    </div>
+    <div class="tcm-banner tcm-banner-note">Modeled data, from a single photo per station — accuracy varies by tier (badge above each card). Transmittance heatmaps use a clear-sky reference, not measured weather. See the per-station Tree Canopy tab for full detail and caveats.</div>
+    <div style="display:grid;grid-template-columns:repeat(${Math.min(compareStations.length,4)},1fr);gap:10px">${cards}</div>`;
+
+  panel.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.getAttribute('data-remove');
+      const idx=compareStations.indexOf(sid);
+      if(idx>=0) compareStations.splice(idx,1);
+      refreshAllMarkers();
+      showCharts(); renderCompare();
+    });
+  });
+}
+
+// ── Compare mode dispatcher — picks WS network vs Greenery network ─────────
+function renderActiveCompare(){
+  if(compareGreenery.length) renderCompareGreenery();
+  else renderCompare();
+}
+
+// ── Compare mode: Greenery network (Air Temp only) ──────────────────────────
+function renderCompareGreenery(){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  showCharts();
+  const panel=document.getElementById('rightPanel');
+  const ms=+document.getElementById('monthSel').value;
+  const vi=VARS.AirTemp;
+  const effectiveDn=dnMode==='hm'?'a':dnMode;
+  const dk=getDataKey('AirTemp',effectiveDn);
+
+  if(!compareGreenery.length){
+    panel.innerHTML=`<div class="no-sel">
+      <div style="font-size:32px;margin-bottom:10px">⚖</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active — Greenery</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} greenery (triangle) stations on the map to compare their Air Temp.</div>
+    </div>`;
+    return;
+  }
+
+  const chips=compareGreenery.map((gid,i)=>`
+    <span class="cmp-chip" style="background:${CMP_COLORS[i]}">
+      ${gid} <span style="font-size:10px;opacity:.8">${GR.stations[gid]?.name||''}</span>
+      <button type="button" data-remove-gr="${gid}" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.85);font-size:14px;line-height:1;padding:0 0 0 4px;font-weight:700">✕</button>
+    </span>`).join('');
+
+  const legendItems=compareGreenery.map((gid,i)=>`
+    <span class="cmp-legend-item">
+      <span class="cmp-dot" style="background:${CMP_COLORS[i]}"></span>${gid}
+    </span>`).join('');
+
+  const modeNote=effectiveDn==='d'?'☀ Daytime (7–19h)':effectiveDn==='n'?'🌙 Nighttime':'All Day';
+
+  panel.innerHTML=`
+    <div class="cmp-panel-hdr" style="background:#1b5e20">
+      <div style="font-size:12px;font-weight:700;color:#fff">⚖ Comparing Greenery Stations</div>
+      ${chips}
+      <span style="font-size:10px;color:#d7e8d0;margin-left:4px">${compareGreenery.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareGreenery.length} slot${MAX_CMP-compareGreenery.length===1?'':'s'} left)`:`<span style="color:#fde68a">Max ${MAX_CMP} stations reached</span>`}</span>
+      ${compareGreenery.length>0?`<button type="button" id="clearCmpGrBtn" style="margin-left:8px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✕ Clear All</button>`:''}
+    </div>
+
+    <div class="toggle-row" style="margin-bottom:10px">
+      <label>Period:</label>
+      <button class="dn-btn ${effectiveDn==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+      <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+      <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Monthly Trend Comparison</div>
+      <div class="chart-sub">${modeNote} · Jan–Dec 2025</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:234px"><canvas id="cmp_gr_monthly"></canvas></div>
+    </div>
+
+    ${ms===0?`<div class="chart-card">
+      <div class="chart-title">${vi.label} — Daily Comparison (2025)</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_gr_daily"></canvas></div>
+    </div>`:`<div class="chart-card">
+      <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily Comparison</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_gr_modays"></canvas></div>
+    </div>`}
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Annual Summary</div>
+      <div class="chart-sub">Mean · ${modeNote}</div>
+      <div class="chart-wrap" style="height:156px"><canvas id="cmp_gr_summary"></canvas></div>
+    </div>`;
+
+  const clearBtn=document.getElementById('clearCmpGrBtn');
+  if(clearBtn) clearBtn.addEventListener('click',()=>{
+    compareGreenery=[];
+    setVarButtonsForGreenery(false);
+    refreshGreeneryMarkers();
+    showCharts(); renderCompareGreenery();
+  });
+  panel.querySelectorAll('[data-remove-gr]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const gid=btn.getAttribute('data-remove-gr');
+      const idx=compareGreenery.indexOf(gid);
+      if(idx>=0) compareGreenery.splice(idx,1);
+      setVarButtonsForGreenery(compareGreenery.length>0);
+      refreshGreeneryMarkers();
+      showCharts(); renderCompareGreenery();
+    });
+  });
+
+  const cmpOpts=(yRange)=>({
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+      x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+    }
+  });
+
+  // Monthly trend
+  const mDatasets=compareGreenery.map((gid,i)=>({
+    label:gid,
+    data:Array.from({length:12},(_,m)=>GR.monthly[gid]?.[m+1]?.[dk]??null),
+    borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+    fill:false, tension:0.3, pointRadius:3, pointHoverRadius:5, borderWidth:2
+  }));
+  charts.cmpGrMonthly=new Chart(document.getElementById('cmp_gr_monthly'),{
+    type:'line', data:{labels:MONTHS, datasets:mDatasets},
+    options:{...cmpOpts(getYRange('AirTemp','avg')),
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+  });
+
+  const yrCmp=getYRange('AirTemp','detail');
+  if(ms===0){
+    const allDays=Object.keys(GR.daily[compareGreenery[0]]||{}).sort();
+    const dLabels=allDays.map(d=>d.slice(8)==='01'?MONTHS[+d.slice(5,7)-1]:'');
+    const dDatasets=compareGreenery.map((gid,i)=>({
+      label:gid,
+      data:allDays.map(d=>GR.daily[gid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:'transparent',
+      fill:false, tension:0.3, pointRadius:0, borderWidth:1.2
+    }));
+    charts.cmpGrDaily=new Chart(document.getElementById('cmp_gr_daily'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+        scales:{...cmpOpts(yrCmp).scales,
+          x:{...cmpOpts(yrCmp).scales.x, ticks:{font:{size:9},maxRotation:0,autoSkip:false,
+            callback(v,i){return dLabels[i]||''}}}}}
+    });
+  } else {
+    const moDays=Object.keys(GR.daily[compareGreenery[0]]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dDatasets=compareGreenery.map((gid,i)=>({
+      label:gid,
+      data:moDays.map(d=>GR.daily[gid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+      fill:true, tension:0.3, pointRadius:2, borderWidth:2
+    }));
+    charts.cmpGrModays=new Chart(document.getElementById('cmp_gr_modays'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+    });
+  }
+
+  const sumLabels=compareGreenery.map(g=>g);
+  const sumData=compareGreenery.map(g=>{
+    const vals=Array.from({length:12},(_,m)=>GR.monthly[g]?.[m+1]?.[dk]).filter(v=>v!=null);
+    return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+  });
+  charts.cmpGrSummary=new Chart(document.getElementById('cmp_gr_summary'),{
+    type:'bar',
+    data:{labels:sumLabels, datasets:[{data:sumData,
+      backgroundColor:compareGreenery.map((_,i)=>CMP_COLORS[i]),
+      borderRadius:6, barThickness:40}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+      scales:{
+        y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+        x:{grid:{display:false},ticks:{font:{size:12,weight:'bold'}}}
+      }}
+  });
+}
+
 // ── Home / Charts toggle ───────────────────────────────────────────────────
 function showHome(){
   homeVisible=true;
@@ -590,6 +971,20 @@ function showCharts(){
   homeVisible=false;
   document.getElementById('homeView').style.display='none';
   document.getElementById('rightPanel').style.display='block';
+}
+
+// ── Greenery network var-btn gating ─────────────────────────────────────────
+// Greenery stations only have Air Temp (2025) — grey out the tabs that don't apply
+// and force the Air Temp tab active while a greenery station is selected.
+function setVarButtonsForGreenery(isGreenery){
+  document.querySelectorAll('.var-btn').forEach(b=>{
+    b.classList.toggle('disabled', isGreenery && b.dataset.var!=='AirTemp');
+  });
+  if(isGreenery){
+    document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('.var-btn[data-var="AirTemp"]')?.classList.add('active');
+    activeVar='AirTemp';
+  }
 }
 
 // ── Map ────────────────────────────────────────────────────────────────────
@@ -619,18 +1014,21 @@ function initMap(){
     const w=isC?30:32,h=isC?30:22;
     return L.divIcon({html:markerHtml(sid,sel),iconSize:[w,h],iconAnchor:[w/2,h/2],className:''});
   }
+  const wsLayer=L.layerGroup();
   Object.entries(WS.stations).forEach(([sid,meta])=>{
     const m=L.marker([meta.lat,meta.lon],{icon:makeIcon(sid,false)})
-      .addTo(mapInstance)
+      .addTo(wsLayer)
       .bindTooltip(`<b>${sid}</b><br>${meta.type}<br><span style="font-size:11px;color:#555">${WS_LOCATIONS[sid]||''}</span>`,{direction:'top',offset:[0,-12]})
       .on('click',()=>{
         if(compareMode){
+          if(compareGreenery.length)return; // a Greenery comparison is already active — one network at a time
           const idx=compareStations.indexOf(sid);
           if(idx>=0){ compareStations.splice(idx,1); }
-          else if(compareStations.length<3){ compareStations.push(sid); }
+          else if(compareStations.length<MAX_CMP){ compareStations.push(sid); }
           refreshAllMarkers();
           showCharts(); renderCompare();
         } else {
+          if(activeGreenery){ grMarkers[activeGreenery]?.setIcon(makeGrIcon(activeGreenery,false)); activeGreenery=null; setVarButtonsForGreenery(false); }
           if(activeStation)markers[activeStation].setIcon(makeIcon(activeStation,false));
           activeStation=sid; m.setIcon(makeIcon(sid,true));
           showCharts(); renderAll();
@@ -638,6 +1036,61 @@ function initMap(){
       });
     markers[sid]=m;
   });
+  wsLayer.addTo(mapInstance); // visible by default
+
+  // ── Greenery network markers (2025 Air Temp only, 24 stations) ─────────
+  const greeneryLayer=L.layerGroup();
+  const GR_COLOR='#1b5e20', GR_SEL='#1a73e8';
+  const GR_W=28, GR_H=25; // triangle bounding box
+  function grMarkerHtml(gid,sel){
+    const cmpIdx=compareGreenery.indexOf(gid);
+    const bg=compareMode&&cmpIdx>=0 ? CMP_COLORS[cmpIdx] : sel ? GR_SEL : GR_COLOR;
+    const num=String(parseInt(gid.slice(1),10));
+    const innerW=GR_W-6, innerH=GR_H-5;
+    // Triangle via CSS border-trick: white triangle (border look) behind a smaller colored triangle on top.
+    return `<div style="position:relative;width:${GR_W}px;height:${GR_H}px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));">
+      <div style="position:absolute;top:0;left:0;width:0;height:0;
+        border-left:${GR_W/2}px solid transparent;border-right:${GR_W/2}px solid transparent;
+        border-bottom:${GR_H}px solid #fff;"></div>
+      <div style="position:absolute;top:3px;left:${(GR_W-innerW)/2}px;width:0;height:0;
+        border-left:${innerW/2}px solid transparent;border-right:${innerW/2}px solid transparent;
+        border-bottom:${innerH}px solid ${bg};"></div>
+      <div style="position:absolute;bottom:1px;left:0;width:${GR_W}px;text-align:center;font-size:9px;font-weight:700;color:#fff;line-height:1;">${num}</div>
+    </div>`;
+  }
+  function makeGrIcon(gid,sel){
+    return L.divIcon({html:grMarkerHtml(gid,sel),iconSize:[GR_W,GR_H],iconAnchor:[GR_W/2,GR_H/2],className:''});
+  }
+  if(GR && GR.stations){
+    refreshGreeneryMarkers=function(){
+      Object.keys(grMarkers).forEach(g=>grMarkers[g].setIcon(makeGrIcon(g,g===activeGreenery)));
+    };
+    Object.entries(GR.stations).forEach(([gid,meta])=>{
+      const gm=L.marker([meta.lat,meta.lon],{icon:makeGrIcon(gid,false)})
+        .addTo(greeneryLayer)
+        .bindTooltip(`<b>${gid}</b> — Greenery Station<br><span style="font-size:11px;color:#555">${meta.name}</span>`,{direction:'top',offset:[0,-10]})
+        .on('click',()=>{
+          if(compareMode){
+            if(compareStations.length)return; // a WS comparison is already active — one network at a time
+            const idx=compareGreenery.indexOf(gid);
+            if(idx>=0){ compareGreenery.splice(idx,1); }
+            else if(compareGreenery.length<MAX_CMP){ compareGreenery.push(gid); }
+            setVarButtonsForGreenery(compareGreenery.length>0);
+            refreshGreeneryMarkers();
+            showCharts(); renderCompareGreenery();
+            return;
+          }
+          if(activeStation){ markers[activeStation]?.setIcon(makeIcon(activeStation,false)); activeStation=null; }
+          if(activeGreenery) grMarkers[activeGreenery]?.setIcon(makeGrIcon(activeGreenery,false));
+          activeGreenery=gid; gm.setIcon(makeGrIcon(gid,true));
+          setVarButtonsForGreenery(true);
+          showCharts(); renderGreenery();
+        });
+      grMarkers[gid]=gm;
+    });
+    greeneryLayer.addTo(mapInstance); // visible by default
+  }
+
   const leg=L.control({position:'bottomleft'});
   leg.onAdd=()=>{
     const d=L.DomUtil.create('div','map-legend');
@@ -645,7 +1098,8 @@ function initMap(){
       <div class="leg-item"><div class="leg-circle" style="background:#1b2a4a"></div>Ground</div>
       <div class="leg-item"><div class="leg-rect" style="background:#c62828"></div>Rooftop</div>
       <div class="leg-item"><div class="leg-rect3" style="background:#7b1fa2"></div>Rooftop 3-axis</div>
-      <div class="leg-item"><div class="leg-circle" style="background:#1a73e8"></div>Selected</div>`;
+      <div class="leg-item"><div class="leg-circle" style="background:#1a73e8"></div>Selected</div>
+      <div class="leg-item"><div class="leg-tri"></div>Greenery (Ta only)</div>`;
     return d;
   };
   leg.addTo(mapInstance);
@@ -689,6 +1143,8 @@ function initMap(){
       geojsonLayers[def.name] = layer;
       overlayControl[def.name] = layer;
     });
+    overlayControl['📡 BEAM WS Stations'] = wsLayer;
+    if(GR && GR.stations) overlayControl['📍 Greenery Stations (Ta)'] = greeneryLayer;
 
     // Layer toggle control (top-right of map)
     L.control.layers(null, overlayControl, {
@@ -702,8 +1158,8 @@ function initMap(){
 function renderAll(){
   if(!activeStation||homeVisible)return;
   const sid=activeStation, meta=WS.stations[sid];
-  const isWind=activeVar==='Wind', isOverall=activeVar==='Overall';
-  const statVar=isWind?'WindSpeed':isOverall?'AirTemp':activeVar;
+  const isWind=activeVar==='Wind', isOverall=activeVar==='Overall', isCanopy=activeVar==='Canopy';
+  const statVar=isWind?'WindSpeed':(isOverall||isCanopy)?'AirTemp':activeVar;
   const vi=VARS[statVar], ms=+document.getElementById('monthSel').value;
 
   let allVals=[];
@@ -719,6 +1175,41 @@ function renderAll(){
       <div><div class="sel-name">${meta.type} Station</div>
       <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)}</div></div>
     </div>
+    ${isCanopy?'':`<div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${avg}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Annual Avg</div></div>
+      <div class="stat-box"><div class="stat-val">${vmin}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Min</div></div>
+      <div class="stat-box"><div class="stat-val">${vmax}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Max</div></div>
+      <div class="stat-box"><div class="stat-val">${rng}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Seasonal Range</div></div>
+    </div>`}
+    <div id="mainContent"></div>`;
+
+  const cont=document.getElementById('mainContent');
+  if(isOverall)     renderOverall(cont,ms);
+  else if(isWind)   renderWind(cont,ms);
+  else if(isCanopy) renderCanopy(cont,sid);
+  else              renderCharts(cont,ms);
+}
+
+// ── Greenery network dispatcher (24 stations, 2025 Air Temp only) ──────────
+function renderGreenery(){
+  if(!activeGreenery||homeVisible)return;
+  const gid=activeGreenery, meta=GR.stations[gid];
+  const vi=VARS.AirTemp, ms=+document.getElementById('monthSel').value;
+
+  let allVals=[];
+  for(let m=1;m<=12;m++){const v=GR.monthly[gid]?.[m]?.AirTemp;if(v!=null)allVals.push(v);}
+  const avg=allVals.length?(allVals.reduce((a,b)=>a+b)/allVals.length).toFixed(2):'--';
+  const vmin=allVals.length?Math.min(...allVals).toFixed(2):'--';
+  const vmax=allVals.length?Math.max(...allVals).toFixed(2):'--';
+  const rng=(allVals.length&&vmin!='--')?(vmax-vmin).toFixed(2):'--';
+
+  document.getElementById('rightPanel').innerHTML=`
+    <div class="sel-bar" style="background:#1b5e20">
+      <div class="sel-id">${gid}</div>
+      <div><div class="sel-name">Greenery Station — ${meta.name}</div>
+      <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)} · Air Temp only</div></div>
+    </div>
+    ${activeYear!==2025?`<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#e8f5e9;border:1px solid #2e7d32;font-size:11px;color:#1b5e20">🌿 The greenery network has <b>2025 data only</b> — shown here regardless of the selected year (${activeYear}).</div>`:''}
     <div class="stats-row">
       <div class="stat-box"><div class="stat-val">${avg}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Annual Avg</div></div>
       <div class="stat-box"><div class="stat-val">${vmin}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Min</div></div>
@@ -727,10 +1218,179 @@ function renderAll(){
     </div>
     <div id="mainContent"></div>`;
 
-  const cont=document.getElementById('mainContent');
-  if(isOverall)     renderOverall(cont,ms);
-  else if(isWind)   renderWind(cont,ms);
-  else              renderCharts(cont,ms);
+  renderGreeneryCharts(document.getElementById('mainContent'), ms);
+}
+
+function renderGreeneryCharts(cont,ms){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const gid=activeGreenery, vi=VARS.AirTemp;
+  const effectiveDn=dnMode==='hm'?'a':dnMode; // heatmap ignores day/night split (spans all 24h)
+  const dk=getDataKey('AirTemp',effectiveDn);
+  const allGids=Object.keys(GR.stations).sort();
+  const nums=allGids.map(g=>String(parseInt(g.slice(1),10)));
+
+  const toggleHtml=`<div class="toggle-row">
+    <label>Period:</label>
+    <button class="dn-btn ${effectiveDn==='a'&&dnMode!=='hm'?'active':''}" onclick="setDn('a')">All Day</button>
+    <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+    <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>
+  </div>`;
+
+  // Heatmap mode: single Air Temp hour x month grid for this station, then stop
+  if(dnMode==='hm'){
+    const grid=GR.heat?.[gid];
+    cont.innerHTML=toggleHtml+(grid?`
+      <div class="hm-card">
+        <div class="hm-title">${vi.label} <span style="font-weight:400;color:var(--muted)">(${vi.unit})</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, 2025 · months with no data are left blank</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="gr_hm"></canvas></div>
+          <div class="hm-colorbar">
+            <div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">${vi.unit}</div>
+            <canvas id="gr_hm_cb"></canvas>
+          </div>
+        </div>
+      </div>`:`<div class="chart-card"><div class="chart-title">No heatmap data</div><div class="chart-sub">This station has no hourly data for 2025.</div></div>`);
+    if(grid){
+      requestAnimationFrame(()=>{
+        // grid[hour][month0] → transpose to data2d[month][hour] for drawHeatmapNew (Y=month, X=hour)
+        const data2d=Array.from({length:12},(_,m)=>Array.from({length:24},(_,h)=>grid[h]?.[m]??null));
+        const range=GR.heat_range||{min:22,max:36};
+        drawHeatmapNew('gr_hm',data2d,vi.cmap,MONTHS,range,'gr_hm_cb',vi.unit,vi.cbTicks,0,23);
+      });
+    }
+    return;
+  }
+
+  if(ms===0){
+    // Annual
+    const mData=Array.from({length:12},(_,i)=>GR.monthly[gid]?.[i+1]?.[dk]??null);
+    const allDays=Object.keys(GR.daily[gid]||{}).sort();
+    const dData=allDays.map(d=>GR.daily[gid][d]?.[dk]??null);
+    const dMidLabels=midMonthLabels(allDays);
+    const cData=allGids.map(g=>{
+      const vals=Array.from({length:12},(_,i)=>GR.monthly[g]?.[i+1]?.[dk]).filter(v=>v!=null);
+      return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+    });
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Average</div>
+        <div class="chart-sub">${gid} · Jan–Dec 2025 · months without data are left blank</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="gr_monthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Distribution</div>
+        <div class="chart-sub">${gid} · Box = daily values per month · × = mean</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="gr_monthly_bp"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Daily (2025)</div>
+        <div class="chart-sub">${gid} · Alternating colors by month · Label at mid-month</div>
+        <div class="chart-wrap" style="height:140px"><canvas id="gr_daily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Greenery Station Comparison</div>
+        <div class="chart-sub">Annual average · ${gid} highlighted</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="gr_compare"></canvas></div>
+      </div>`;
+
+    charts.grMonthly=new Chart(document.getElementById('gr_monthly'),{
+      type:'bar',data:{labels:MONTHS,datasets:[{data:mData,backgroundColor:monthBarColors(MONTHS),borderRadius:3}]},
+      options:chartOpts(vi.unit,getYRange('AirTemp','avg'))});
+
+    try{
+      const bpData=MONTHS.map((_,i)=>{
+        const m=i+1;
+        return Object.keys(GR.daily[gid]||{}).filter(d=>+d.slice(5,7)===m)
+          .map(d=>GR.daily[gid][d]?.[dk]).filter(v=>v!=null);
+      });
+      const bpYr=getYRange('AirTemp','detail');
+      charts.grMonthlyBp=new Chart(document.getElementById('gr_monthly_bp'),{
+        type:'boxplot',
+        data:{labels:MONTHS,datasets:[{label:vi.label,data:bpData,
+          backgroundColor:'rgba(27,94,32,0.55)',borderColor:'#1b5e20',borderWidth:1.2,
+          barPercentage:0.5,categoryPercentage:0.7,
+          outlierRadius:2,outlierBackgroundColor:'#1b5e20',
+          meanBackgroundColor:'#1b5e20',meanBorderColor:'#1b5e20',
+          medianColor:'#1b2a4a'}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:bpTooltip(vi.unit)},
+          scales:{
+            y:{min:bpYr.min,max:bpYr.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
+               title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+            x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+          }}
+      });
+    }catch(e){
+      console.warn('Greenery monthly boxplot failed (plugin may not be loaded):', e);
+      const el=document.getElementById('gr_monthly_bp');
+      if(el)el.parentElement.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Boxplot unavailable — check CDN connection</div>';
+    }
+
+    charts.grDaily=new Chart(document.getElementById('gr_daily'),{
+      type:'bar',
+      data:{labels:dMidLabels,datasets:[{data:dData,backgroundColor:dayBarColors(allDays),borderRadius:0,barPercentage:1,categoryPercentage:1}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','detail').min,max:getYRange('AirTemp','detail').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:false,callback(v,i){return dMidLabels[i]||''}}}
+        }}});
+
+    charts.grCompare=new Chart(document.getElementById('gr_compare'),{
+      type:'bar',data:{labels:nums,datasets:[{data:cData,
+        backgroundColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'rgba(148,163,184,.5)'),
+        borderColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'transparent'),
+        borderWidth:2,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allGids[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},title:{display:true,text:'Greenery Station Code',font:{size:10},color:'#64748b'},ticks:{font:{size:8},maxRotation:45}}
+        }}});
+
+  } else {
+    // Monthly
+    const moDays=Object.keys(GR.daily[gid]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dData=moDays.map(d=>GR.daily[gid][d]?.[dk]??null);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dColors=dLabels.map((_,i)=>i%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)');
+    const cData=allGids.map(g=>GR.monthly[g]?.[ms]?.[dk]??null);
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily</div>
+        <div class="chart-sub">${gid} · ${MONTHS[ms-1]} 2025${moDays.length?'':' · no data this month'}</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="gr_modays"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Greenery Station Comparison (${MONTHS[ms-1]})</div>
+        <div class="chart-sub">All greenery stations · ${gid} highlighted</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="gr_compare"></canvas></div>
+      </div>`;
+
+    const moDayOpts=chartOpts(vi.unit,getYRange('AirTemp','detail'));
+    moDayOpts.scales.x.title={display:true,text:'Days of the Month',font:{size:9},color:'#64748b'};
+    charts.grModays=new Chart(document.getElementById('gr_modays'),{
+      type:'bar',data:{labels:dLabels,datasets:[{data:dData,backgroundColor:dColors,borderRadius:3}]},
+      options:moDayOpts});
+
+    charts.grCompare=new Chart(document.getElementById('gr_compare'),{
+      type:'bar',data:{labels:nums,datasets:[{data:cData,
+        backgroundColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'rgba(148,163,184,.5)'),
+        borderColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'transparent'),
+        borderWidth:2,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allGids[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},title:{display:true,text:'Greenery Station Code',font:{size:10},color:'#64748b'},ticks:{font:{size:8},maxRotation:45}}
+        }}});
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -834,6 +1494,60 @@ function compareOpts(unit,yRange,wsTypes){
   };
 }
 
+// ── Year-vs-year comparison (per station) ──────────────────────────────────
+function yearsWithData(sid){ return YEARS.filter(y=>YD[y].WS?.monthly?.[sid]); }
+
+function yearCmpCardHtml(canvasId,sid,varKey,ms){
+  const ys=yearsWithData(sid);
+  if(ys.length<2)return '';
+  const vi=VARS[varKey];
+  const legend=ys.map(y=>`<span class="cmp-legend-item"><span class="cmp-dot" style="background:${YEAR_COLORS[y]}"></span>${YEAR_SPAN[y]||y}</span>`).join('');
+  return `<div class="chart-card">
+    <div class="chart-title">${vi.label} — Year Comparison${ms>0?` (${MONTHS[ms-1]})`:''}</div>
+    <div class="chart-sub">${sid} · ${ms===0?'Monthly averages, one line per year':'Daily values, one line per year'} · months without data are left blank</div>
+    <div class="cmp-legend-row">${legend}</div>
+    <div class="chart-wrap" style="height:190px"><canvas id="${canvasId}"></canvas></div>
+  </div>`;
+}
+
+function makeYearCmpChart(canvasId,sid,varKey,dk,ms){
+  const ys=yearsWithData(sid);
+  const el=document.getElementById(canvasId);
+  if(ys.length<2||!el)return;
+  const vi=VARS[varKey];
+  let labels,dataFor;
+  if(ms===0){
+    labels=MONTHS;
+    dataFor=y=>Array.from({length:12},(_,m)=>YD[y].WS.monthly[sid]?.[m+1]?.[dk]??null);
+  }else{
+    labels=Array.from({length:31},(_,i)=>String(i+1));
+    dataFor=y=>labels.map(d=>YD[y].WS.daily?.[sid]?.[`${y}-${String(ms).padStart(2,'0')}-${d.padStart(2,'0')}`]?.[dk]??null);
+  }
+  charts['yc_'+canvasId]=new Chart(el,{
+    type:'line',
+    data:{labels,datasets:ys.map(y=>({label:String(y),data:dataFor(y),
+      borderColor:YEAR_COLORS[y],backgroundColor:'transparent',fill:false,
+      tension:0.3,pointRadius:ms===0?3:0,pointHoverRadius:4,borderWidth:2,spanGaps:false}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+      scales:{
+        y:{min:getYRange(varKey,ms===0?'avg':'detail').min,max:getYRange(varKey,ms===0?'avg':'detail').max,
+           grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+        x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0},
+           title:ms>0?{display:true,text:'Day of Month',font:{size:9},color:'#64748b'}:undefined}
+      }}
+  });
+}
+
+// ── QC banner (sensor faults flagged at build time in beam_meta_years.json) ─
+function qcBannerHtml(sid){
+  const flags=META?.qc_flags?.[String(activeYear)]?.[sid];
+  if(!flags)return '';
+  const items=Object.entries(flags).map(([v,frac])=>`${VARS[v]?.label||v} — ${Math.round(frac*100)}% of readings were implausible (sensor fault) and have been removed`).join(' · ');
+  return `<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#fff8e1;border:1px solid #f59e0b;font-size:11px;color:#92400e">⚠ <b>Sensor fault (${sid}, ${activeYear}):</b> ${items}. Remaining values may still warrant caution; periods with no valid data appear blank.</div>`;
+}
+
 // ── CHARTS ─────────────────────────────────────────────────────────────────
 function renderCharts(cont,ms){
   Object.values(charts).forEach(c=>c.destroy?.());charts={};
@@ -850,13 +1564,14 @@ function renderCharts(cont,ms){
       : `<label>Period:</label>
          <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
          <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
-         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>`
+         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+         <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>`
       }
   </div>`;
 
   // If heatmap mode: show 4-variable heatmaps for this station, then stop
   if(dnMode==='hm'){
-    cont.innerHTML=toggleHtml+`<div id="hmContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"></div>`;
+    cont.innerHTML=qcBannerHtml(sid)+toggleHtml+`<div id="hmContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"></div>`;
     const hmContainer=document.getElementById('hmContainer');
     const hmVars=['AirTemp','RelHum','WindSpeed','GlobalRad'];
     hmVars.forEach(v=>{
@@ -902,7 +1617,7 @@ function renderCharts(cont,ms){
     cont.innerHTML=`${toggleHtml}
       <div class="chart-card">
         <div class="chart-title">${vi.label} — Monthly Average</div>
-        <div class="chart-sub">${sid} · Jan–Dec 2025${isSolar?' · Daytime 7–19h':''}</div>
+        <div class="chart-sub">${sid} · ${YEAR_SPAN[activeYear]||activeYear}${isSolar?' · Daytime 7–19h':''}</div>
         <div class="chart-wrap" style="height:155px"><canvas id="c_monthly"></canvas></div>
       </div>
       <div class="chart-card">
@@ -911,7 +1626,7 @@ function renderCharts(cont,ms){
         <div class="chart-wrap" style="height:200px"><canvas id="c_monthly_bp"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">${vi.label} — Daily (365 days)</div>
+        <div class="chart-title">${vi.label} — Daily (${activeYear})</div>
         <div class="chart-sub">${sid} · Alternating colors by month · Label at mid-month</div>
         <div class="chart-wrap" style="height:140px"><canvas id="c_daily"></canvas></div>
       </div>
@@ -924,7 +1639,8 @@ function renderCharts(cont,ms){
         <div class="chart-sub">${compView==='bar'?'Annual average':'Distribution of daily values'} · ${sid} highlighted</div>
         <div class="chart-wrap" style="height:${compView==='box'?200:170}px"><canvas id="c_compare"></canvas></div>
         ${COMPARE_LEGEND}
-      </div>`;
+      </div>
+      ${yearCmpCardHtml('c_years',sid,activeVar,0)}`;
 
     charts.monthly=new Chart(document.getElementById('c_monthly'),{
       type:'bar',data:{labels:MONTHS,datasets:[{data:mData,backgroundColor:monthBarColors(MONTHS),borderRadius:3}]},
@@ -1003,6 +1719,8 @@ function renderCharts(cont,ms){
         options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
     }
 
+    makeYearCmpChart('c_years',sid,activeVar,dk,0);
+
   } else {
     // Monthly
     const moDays=Object.keys(WS.daily[sid]||{}).sort().filter(d=>+d.slice(5,7)===ms);
@@ -1014,7 +1732,7 @@ function renderCharts(cont,ms){
     cont.innerHTML=`${toggleHtml}
       <div class="chart-card">
         <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily</div>
-        <div class="chart-sub">${sid} · ${MONTHS[ms-1]} 2025</div>
+        <div class="chart-sub">${sid} · ${MONTHS[ms-1]} ${activeYear}</div>
         <div class="chart-wrap" style="height:155px"><canvas id="c_modays"></canvas></div>
       </div>
       <div class="chart-card">
@@ -1022,7 +1740,8 @@ function renderCharts(cont,ms){
         <div class="chart-sub">All stations · ${sid} highlighted</div>
         <div class="chart-wrap" style="height:170px"><canvas id="c_compare"></canvas></div>
         ${COMPARE_LEGEND}
-      </div>`;
+      </div>
+      ${yearCmpCardHtml('c_years_mo',sid,activeVar,ms)}`;
 
     const moDayOpts=chartOpts(vi.unit,getYRange(activeVar,'detail'));
     moDayOpts.scales.x.title={display:true,text:'Days of the Month',font:{size:9},color:'#64748b'};
@@ -1036,6 +1755,8 @@ function renderCharts(cont,ms){
         borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
         borderWidth:2,borderRadius:3}]},
       options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
+
+    makeYearCmpChart('c_years_mo',sid,activeVar,dk,ms);
   }
 }
 
@@ -1044,7 +1765,8 @@ function setDn(mode){
   dnMode=mode;
   const ms=+document.getElementById('monthSel').value;
   if(homeVisible)return;
-  if(compareMode){ renderCompare(); return; }
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
   if(!activeStation)return;
   const cont=document.getElementById('mainContent');
   if(activeVar==='Wind')renderWind(cont,ms);
@@ -1055,7 +1777,8 @@ function setDn(mode){
 function renderWind(cont,ms){
   Object.values(charts).forEach(c=>c.destroy?.());charts={};
   const sid=activeStation,isAnnual=ms===0;
-  const vi=VARS['WindSpeed'],dk=getDataKey('WindSpeed',dnMode);
+  const effectiveDn=dnMode==='hm'?'a':dnMode; // heatmap mode isn't available on the Wind tab
+  const vi=VARS['WindSpeed'],dk=getDataKey('WindSpeed',effectiveDn);
   const yr=yRangeCache['WindSpeed'];
   const allSids=Object.keys(WS.stations).sort();
   const nums=allSids.map(s=>s.replace('WS',''));
@@ -1063,7 +1786,7 @@ function renderWind(cont,ms){
 
   // Wind rose data by mode
   function getWrData(){
-    const suffix=dnMode==='a'?'':dnMode==='d'?'_d':'_n';
+    const suffix=effectiveDn==='a'?'':effectiveDn==='d'?'_d':'_n';
     if(isAnnual) return WR[`wr_annual${suffix}`]?.[sid];
     return WR[`wr_monthly${suffix}`]?.[sid]?.[String(ms)];
   }
@@ -1079,11 +1802,12 @@ function renderWind(cont,ms){
   });
 
   cont.innerHTML=`
+    ${qcBannerHtml(sid)}
     <div class="toggle-row">
       <label>Period:</label>
-      <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
-      <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
-      <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+      <button class="dn-btn ${effectiveDn==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+      <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+      <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
     </div>
     <div class="chart-card">
       <div class="chart-title">Wind Speed — ${isAnnual?'Monthly Average':'Daily ('+MONTHS[ms-1]+')'}</div>
@@ -1103,7 +1827,7 @@ function renderWind(cont,ms){
       ${COMPARE_LEGEND}
     </div>
     <div class="chart-card">
-      <div class="chart-title">Wind Rose — ${isAnnual?'Annual':MONTHS[ms-1]} · ${sid} · ${dnMode==='a'?'All Day':dnMode==='d'?'Daytime':'Nighttime'}</div>
+      <div class="chart-title">Wind Rose — ${isAnnual?'Annual':MONTHS[ms-1]} · ${sid} · ${effectiveDn==='a'?'All Day':effectiveDn==='d'?'Daytime':'Nighttime'}</div>
       <div class="chart-sub">16 direction bins · Speed-binned frequency</div>
       <div class="wr-compact" id="wrCompact">
         <canvas id="wr_canvas"></canvas>
@@ -1112,7 +1836,8 @@ function renderWind(cont,ms){
           ${WR_LABELS.map((l,i)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[i]}"></div>${l}</div>`).join('')}
         </div>
       </div>
-    </div>`;
+    </div>
+    ${yearCmpCardHtml('c_wyears',sid,'WindSpeed',isAnnual?0:ms)}`;
 
   // Speed charts
   if(isAnnual){
@@ -1156,6 +1881,8 @@ function renderWind(cont,ms){
       borderWidth:2,borderRadius:3}]},
     options:compareOpts('m/s',yr,wsTypes)});
 
+  makeYearCmpChart('c_wyears',sid,'WindSpeed',dk,isAnnual?0:ms);
+
   // Draw wind rose compact
   requestAnimationFrame(()=>{
     const cardW=document.getElementById('wrCompact').offsetWidth;
@@ -1165,6 +1892,215 @@ function renderWind(cont,ms){
     const wrData=getWrData();
     if(wrData)drawWindRose('wr_canvas',wrData);
   });
+}
+
+// ── TREE CANOPY / TCM-SVI TAB ───────────────────────────────────────────────
+const TCM_CMAPS={
+  ghi: CMAPS.GlobalRad,
+  transmittance: ['#0d3b1e','#2e7d32','#8bc34a','#ffee58','#ffa726']
+};
+
+function tierBadgeHtml(tier){
+  const desc={STRONG:'R²≥0.85, MAE≤60 W/m² vs 2yr measured data',
+              MODERATE:'Moderate agreement with measured data — read with some caution',
+              WEAK:'Weak agreement — several WEAK-tier stations score near or below chance level'}[tier]||'';
+  const dot={STRONG:'●',MODERATE:'◐',WEAK:'○'}[tier]||'○';
+  return `<span class="tier-badge tier-${tier}" title="${desc}">${dot} ${tier} tier</span>`;
+}
+
+function photoPaths(rec,isTcm){
+  return isTcm
+    ? {real:rec.svi_photo, segmented:rec.segmentation?.segmented_full, blended:rec.segmentation?.blended}
+    : {real:rec.svi_photo, segmented:rec.segmented_full, blended:rec.blended};
+}
+
+function setCanopyPhoto(mode){
+  canopyPhotoMode=mode;
+  const img=document.getElementById('tcmPhotoImg');
+  const paths=window._canopyPhotoPaths;
+  if(img && paths && paths[mode]) img.src=TCM_BASE+paths[mode];
+  document.querySelectorAll('.tcm-photo-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+
+async function getTcmHourlyData(sid){
+  if(TCM_DATA_CACHE[sid]) return TCM_DATA_CACHE[sid];
+  try{
+    const d=await fetch(`${TCM_BASE}tcm_data/${sid}_hourly_month.json`).then(r=>r.json());
+    TCM_DATA_CACHE[sid]=d;
+    return d;
+  }catch(e){ console.warn('Failed to load tcm_data for',sid,e); return null; }
+}
+
+function renderCanopyDonut(sid,comp){
+  const el=document.getElementById('tcmDonut');
+  if(!el||!comp)return;
+  const colors={Sky:'#4fc3f7',Structure:'#9e9e9e',Vegetation:'#43a047',Pavement:'#8d6e63',Terrain:'#c0ca33',Others:'#ab47bc'};
+  const labels=Object.keys(comp);
+  const data=labels.map(k=>+(comp[k]*100).toFixed(1));
+  charts.tcmDonut=new Chart(el,{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>colors[l]||'#94a3b8'),borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed}%`}}}}
+  });
+}
+
+async function loadCanopyHeatmaps(sid){
+  const d=await getTcmHourlyData(sid);
+  // Bail if the user switched stations/tabs while this fetch was in flight — avoids painting
+  // a stale station's data into a same-id canvas that now belongs to a different station.
+  if(!d || sid!==activeStation || activeVar!=='Canopy' || !document.getElementById('tcmHmGhi'))return;
+  const months=d.months;
+  const toGrid=varKey=>months.map(mo=>d[varKey]?.[mo]||[]);
+  requestAnimationFrame(()=>{
+    drawHeatmapNew('tcmHmGhi',   toGrid('ghi_utc_tcm_Wm2'), TCM_CMAPS.ghi,           months, {min:0,max:1000}, 'tcmHmGhiCb',   'W/m²', [0,200,400,600,800,1000], 7, 19);
+    drawHeatmapNew('tcmHmTrans', toGrid('transmittance_tcm'), TCM_CMAPS.transmittance, months, {min:0,max:1},    'tcmHmTransCb', '',     [0,0.25,0.5,0.75,1],       7, 19);
+  });
+}
+
+const TCM_STATIC_CHARTS=[
+  ['hourly_shade_profile','Most-shaded hours'],
+  ['seasonal_transmittance','Shade by month'],
+  ['sunpath_transmittance_on_photo','Sun path — shade, on photo'],
+  ['sunpath_transmittance_on_segmentation','Sun path — shade, on segmentation'],
+  ['sunpath_ghi_on_photo','Sun path — GHI, on photo'],
+  ['sunpath_ghi_on_segmentation','Sun path — GHI, on segmentation'],
+  ['empirical_vs_tcm','Modeled vs 2yr measured'],
+  ['svf_gauge','Sky-view factor']
+];
+
+function canopyPhotoToggleHtml(){
+  return `<div class="tcm-photo-toggle">
+    <button class="tcm-photo-btn ${canopyPhotoMode==='real'?'active':''}" data-mode="real" onclick="setCanopyPhoto('real')">📷 Real</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='segmented'?'active':''}" data-mode="segmented" onclick="setCanopyPhoto('segmented')">🗺 Segmented</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='blended'?'active':''}" data-mode="blended" onclick="setCanopyPhoto('blended')">🩻 Blended</button>
+  </div>`;
+}
+
+function renderCanopyTcmBlock(sid,rec,valRec,excluded){
+  const tier=rec.validation_tier;
+  const photos=photoPaths(rec,true);
+  window._canopyPhotoPaths=photos;
+  const chartsMap=rec.tcm_charts||{};
+  const othersShare=rec.pixel_composition?.Others;
+
+  return `
+    ${excluded?`<div class="tcm-banner tcm-banner-excluded">
+      <b>⚠ Excluded from the validated set.</b> ${rec.exclusion_reason||'Reason not recorded.'}<br>
+      Included below for transparency only — do not read these numbers with the same trust as a normal station.
+    </div>`:''}
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+      ${tierBadgeHtml(tier)}
+      <span style="font-size:10px;color:var(--muted)">MAE ${valRec?.MAE_Wm2??'--'} W/m² · R² ${valRec?.R2??'--'} · vs roof reference ${valRec?.roof_reference??'--'}</span>
+    </div>
+
+    <div class="tcm-banner tcm-banner-note">
+      <b>Modeled, not measured.</b> Derived from a single street-view panorama + solar geometry, extrapolated across up to ~2 years assuming the canopy is unchanged — tree growth, pruning, or construction since capture would not show up here. Per-station accuracy varies a lot (see tier above); treat WEAK-tier numbers as indicative at best.
+    </div>
+
+    <div class="tcm-stat-row">
+      <div class="stat-box"><div class="stat-val">${rec.canopy_reduction_pct}%</div><div class="stat-unit">clear-sky GHI</div><div class="stat-lbl">Canopy Reduction</div></div>
+      <div class="stat-box"><div class="stat-val">${rec.shade_rank}</div><div class="stat-unit">shadiest</div><div class="stat-lbl">Network Rank</div></div>
+      <div class="stat-box"><div class="stat-val">${tier}</div><div class="stat-unit">confidence</div><div class="stat-lbl">Validation Tier</div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+      ${canopyPhotoToggleHtml()}
+      <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Pixel composition — ${sid}</div>
+      <div class="chart-sub">Semantic segmentation, share of frame</div>
+      <div class="chart-wrap" style="height:170px"><canvas id="tcmDonut"></canvas></div>
+      ${othersShare>0.3?`<div style="font-size:10px;color:var(--muted);margin-top:6px">Large "Others" share here is usually diagnostic (fencing, poles, etc. misread by the segmentation model), not noise — check the segmented photo above.</div>`:''}
+    </div>
+
+    <div class="hm-card">
+      <div class="hm-title">Modeled solar exposure under canopy (GHI) <span style="font-weight:400;color:var(--muted)">(W/m²)</span></div>
+      <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h · clear-sky reference — see note below</div>
+      <div class="hm-body">
+        <div class="hm-canvas-wrap"><canvas id="tcmHmGhi"></canvas></div>
+        <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">W/m²</div><canvas id="tcmHmGhiCb"></canvas></div>
+      </div>
+    </div>
+    <div class="hm-card">
+      <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
+      <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
+      <div class="hm-body">
+        <div class="hm-canvas-wrap"><canvas id="tcmHmTrans"></canvas></div>
+        <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="tcmHmTransCb"></canvas></div>
+      </div>
+    </div>
+    <div class="tcm-banner tcm-banner-note">
+      <b>Clear-sky reference — not "predicted actual sunlight."</b> GHI above is pvlib clear-sky solar geometry × segmented canopy transmittance, with no cloud attenuation. Spot-checks against measured data found this runs 12–26% below the real long-term average GHI at most stations, even the best-validated ones. Read it as the relative shade pattern across the day/year, not an absolute sunlight forecast.
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Additional model charts — ${sid}</div>
+      <div class="tcm-img-grid">
+        ${TCM_STATIC_CHARTS.filter(([k])=>chartsMap[k]).map(([k,label])=>`
+          <div class="tcm-img-card">
+            <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px">${label}</div>
+            <img src="${TCM_BASE+chartsMap[k]}" alt="${label}" loading="lazy"/>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderCanopySviOnlyBlock(sid,rec){
+  const photos=photoPaths(rec,false);
+  window._canopyPhotoPaths=photos;
+  return `
+    <div class="tcm-banner tcm-banner-info">
+      <b>${sid} is a ${rec.type==='Roof'?'roof':rec.type} reference station</b> — not part of the tree-shade model (TCM only models ground-level stations). Segmentation imagery below is from the SVI showcase, shown for reference only.
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+      ${canopyPhotoToggleHtml()}
+      <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Pixel composition — ${sid}</div>
+      <div class="chart-sub">Semantic segmentation, share of frame</div>
+      <div class="chart-wrap" style="height:170px"><canvas id="tcmDonut"></canvas></div>
+    </div>`;
+}
+
+function renderCanopy(cont,sid){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+
+  if(!TCM || !SVI || !TCMVALID){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load — check that the TCM/ folder sits next to index.html.</div></div>`;
+    return;
+  }
+
+  const tcmRec=TCM[sid], sviRec=SVI[sid], valRec=TCMVALID[sid];
+
+  if(!sviRec){
+    const reasons={
+      WS16:'No street-view panorama was ever captured at this roof station — its dependent ground station (WS17) runs on a roof reference that has never been directly verified.',
+      WS38:'Excluded: confirmed pyranometer fault, and the panorama on file was captured at the wrong physical location. Not usable until both are fixed.'
+    };
+    cont.innerHTML=`<div class="tcm-banner tcm-banner-info">
+      <b>No canopy / segmentation data for ${sid}.</b><br>${reasons[sid]||'No SVI photo or TCM model output exists for this station.'}
+    </div>`;
+    return;
+  }
+
+  const isTcmStation=!!tcmRec;
+  const excluded=isTcmStation && tcmRec.excluded===true;
+
+  cont.innerHTML = isTcmStation
+    ? renderCanopyTcmBlock(sid,tcmRec,valRec,excluded)
+    : renderCanopySviOnlyBlock(sid,sviRec);
+
+  renderCanopyDonut(sid, isTcmStation?tcmRec.pixel_composition:sviRec.pixel_composition);
+  if(isTcmStation) loadCanopyHeatmaps(sid);
 }
 
 // ── Boxplot tooltip helper ────────────────────────────────────────────────
@@ -1213,16 +2149,19 @@ function renderOverall(cont,ms){
   cont.innerHTML=`
     <div class="sub-tabs">
       <button class="sub-tab ${overallSubView==='boxplot'?'active':''}" onclick="setOverallSub('boxplot')">📊 Boxplot</button>
+      <button class="sub-tab ${overallSubView==='canopy'?'active':''}" onclick="setOverallSub('canopy')">🌳 Canopy / Shade — Network</button>
     </div>
     <div id="overallContent"></div>`;
   const oc=document.getElementById('overallContent');
   if(overallSubView==='boxplot') { renderBoxplotAll(oc); return; }
+  if(overallSubView==='canopy')  { renderCanopyNetworkOverview(oc); return; }
 
   // ── existing heatmap rendering (moved here) ─────────────────────────────
 
   cont.innerHTML=`
+    ${qcBannerHtml(activeStation)}
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">
-      ${isAnnual?'ANNUAL — Y: Month · X: Hour of Day':MONTHS[ms-1].toUpperCase()+' — Y: Day · X: Hour of Day'}
+      ${isAnnual?'ANNUAL — Y: Month · X: Hour of Day':MONTHS[ms-1].toUpperCase()+' — Y: Day · X: Hour of Day'} · ${activeYear}
     </div>
     <div id="hmContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>`;
 
@@ -1255,7 +2194,7 @@ function renderOverall(cont,ms){
         // transpose: data2d[yIdx=month][xIdx=hour] = raw[hour][month]
         data2d=Array.from({length:12},(_,m)=>Array.from({length:24},(_,h)=>raw?.[h]?.[m]??null));
       } else {
-        const dim=DAYS_IN_M[ms-1];
+        const dim=(ms===2&&activeYear%4===0)?29:DAYS_IN_M[ms-1]; // leap-year Feb (2024)
         const raw=HM.monthly_heat[activeStation]?.[String(ms)]?.[v];
         nRows=dim; yLabels=Array.from({length:dim},(_,i)=>i+1);
         // data2d[yIdx=day][xIdx=hour] = raw[hour][day_index=0..30]
@@ -1380,6 +2319,63 @@ function renderBoxplotAll(cont){
       }); }catch(e){console.warn('Boxplot failed:',e);}
     });
   });
+}
+
+// ── Canopy / Shade — network-wide overview (Overall tab sub-view) ─────────
+function renderCanopyNetworkOverview(cont){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+
+  if(!TCM || !SVI || !TCMVALID){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load.</div></div>`;
+    return;
+  }
+
+  const sids=Object.keys(TCM).filter(k=>!k.startsWith('_')).sort();
+  const excludedSids=sids.filter(s=>TCM[s].excluded);
+  const rankChart=TCM._network_charts?.canopy_reduction_ranking;
+  const compChart=TCM._network_charts?.svi_composition_all_stations;
+
+  const rows=sids.map(sid=>{
+    const rec=TCM[sid], val=TCMVALID[sid]||{};
+    return `<tr class="${rec.excluded?'excluded-row':''}">
+      <td><b>${sid}</b></td>
+      <td>${tierBadgeHtml(rec.validation_tier)}</td>
+      <td>${val.MAE_Wm2??'--'}</td>
+      <td>${val.R2??'--'}</td>
+      <td>${rec.canopy_reduction_pct}%</td>
+      <td>${rec.excluded?`⚠ ${rec.exclusion_reason||'excluded'}`:'—'}</td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML=`
+    <div class="tcm-banner tcm-banner-note">
+      <b>31 of the network's 40 ground stations are shade-modeled (TCM).</b> WS02/06/12/16/19/24/35/37 are roof reference stations (not modeled), WS38 has no valid data (sensor fault + panorama captured at the wrong location). Every number here comes from a single street-view panorama per station + solar geometry — not measurement — and per-station accuracy varies enormously; check tier + MAE/R² below before trusting any one station's figures.
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Canopy reduction — ranked, all modeled stations</div>
+      <div class="chart-sub">% reduction in clear-sky GHI vs. open sky</div>
+      ${rankChart?`<img src="${TCM_BASE+rankChart}" style="width:100%;border-radius:6px;border:1px solid var(--border)"/>`:'<div style="color:var(--muted);font-size:11px">Chart unavailable</div>'}
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Segmentation composition — all 38 stations with SVI</div>
+      <div class="chart-sub">Ground + roof, directly comparable · divider separates the two groups</div>
+      ${compChart?`<img src="${TCM_BASE+compChart}" style="width:100%;border-radius:6px;border:1px solid var(--border)"/>`:'<div style="color:var(--muted);font-size:11px">Chart unavailable</div>'}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">${SVI._note||''}</div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Per-station validation — ${sids.length} modeled stations${excludedSids.length?`, ${excludedSids.length} excluded`:''}</div>
+      <div class="chart-sub">MAE / R² vs. 2 years of measured pyranometer data</div>
+      <div style="overflow-x:auto">
+        <table class="tcm-tier-table">
+          <thead><tr><th>Station</th><th>Tier</th><th>MAE (W/m²)</th><th>R²</th><th>Canopy reduction</th><th>Excluded?</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 // ── Heatmap: X=hour, Y=month or day, colorbar on right ────────────────────
@@ -1581,13 +2577,15 @@ document.querySelectorAll('.var-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active'); activeVar=btn.dataset.var;
-    if(compareMode){ renderCompare(); return; }
+    if(compareMode){ renderActiveCompare(); return; }
+    if(activeGreenery){ showCharts(); renderGreenery(); return; }
     if(activeStation){showCharts();renderAll();}
   });
 });
 document.getElementById('monthSel').addEventListener('change',()=>{
   if(homeVisible)return;
-  if(compareMode){ renderCompare(); return; }
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
   if(activeStation)renderAll();
 });
 

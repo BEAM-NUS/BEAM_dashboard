@@ -1,9 +1,9 @@
-# BEAM Weather Station Dashboard 2025
+# BEAM Weather Station Dashboard 2024–2026
 
 An interactive, browser-based dashboard for exploring microclimate data from 40 weather stations across NUS Kent Ridge Campus and UTown.
 
 **Live dashboard → [beam-nus.github.io/BEAM_dashboard](https://beam-nus.github.io/BEAM_dashboard/)**
-**Version: 1.0 (June 2026)**
+**Version: 2.0 (July 2026)** — multi-year: Apr 2024 – Jun 2026
 
 ---
 
@@ -18,11 +18,16 @@ No installation is required, the dashboard runs entirely in the browser and load
 ## Features
 
 - **4 measured variables:** Air Temperature · Relative Humidity · Wind Speed · Solar Radiation
+- **Year toggle (2024 / 2025 / 2026):** switch the whole dashboard between years; 2024 covers Apr–Dec, 2026 covers Jan–Jun (months without data are greyed out)
+- **Year comparison:** per-station overlay chart with one line per year (monthly averages, or daily values in monthly view)
 - **Time filters:** Annual and monthly views, with All Day / Daytime / Nighttime breakdowns
 - **Chart types:** Daily trend lines, monthly bar charts, hourly heatmaps, boxplots, and all-station cross-comparisons
-- **Compare mode:** Select up to 3 stations side-by-side, with wind rose diagrams per station
+- **Compare mode:** Select up to 8 stations side-by-side, with wind rose diagrams per station
 - **Interactive campus map:** Station locations with type labels and hover tooltips (powered by Leaflet)
 - **Station types:** Ground (lamp posts, columns, railings), Rooftop, and Rooftop 3-axis
+- **Data QC:** hourly wind readings above 8 m/s (physically implausible — faulty sensor) are removed at build time; affected station-years (e.g. WS17 wind, 2026: 72% removed) show a warning banner
+
+Note: the greenery network, tree-canopy (TCM/SVI) layers, and the home weather radial are 2025-only and are labeled as such.
 
 ---
 
@@ -40,14 +45,24 @@ Station types: Ground · Roof · Roof-3axis
 
 ## Data Files
 
-All data is stored in the `GEOJSON/` folder:
+All data is stored in the `GEOJSON/` folder, per year (`<year>` = 2024, 2025, 2026):
 
 | File | Contents |
 |------|----------|
-| `beam_ws_data.json` | Main station data (all variables, all stations) |
-| `beam_windrose_data.json` | Wind direction and speed distributions |
-| `beam_heatmap_data.json` | Hourly solar radiation data |
-| `beam_meta.json` | Station metadata (type, coordinates) |
+| `beam_ws_data_<year>.json` | Monthly + daily station data (all variables, all stations) |
+| `beam_windrose_data_<year>.json` | Wind direction and speed distributions |
+| `beam_heatmap_data_<year>.json` | Hour × month and hour × day heatmap matrices |
+| `beam_meta_years.json` | Global heatmap color ranges, per-year data coverage, QC flags |
+
+The default year (2025) loads at startup; other years' heatmap/windrose files are lazy-loaded on first switch. The legacy single-year files (`beam_ws_data.json`, `beam_heatmap_data.json`, `beam_windrose_data.json`, `beam_meta.json`) are no longer referenced by `index.html` and are kept only for reference.
+
+Data files are regenerated from the hourly CSV compilations with `tools/build_yearly_data.py`:
+
+```bash
+python3 tools/build_yearly_data.py "<path to Yearly Compilation>" "<path to BEAM_dashboard>"
+```
+
+Conventions (verified against the original 2025 build): daytime = 07:00–19:00 inclusive; solar radiation "all-day" values are daytime means; windrose uses 16 direction sectors from 0° and speed bins 0–1 / 1–2 / 2–3 / >3 m/s.
 
 ---
 
@@ -76,7 +91,7 @@ To update the dashboard, replace `index.html` with the new version and push to `
 
 ## Status
 
-> **Work in progress.** Data covers 2025. Additional features and variables are planned.  
+> **Work in progress.** Data covers Apr 2024 – Jun 2026. Additional features and variables are planned.  
 > Feedback and suggestions are welcome — please open an Issue or contact the project team.
 
 ---
