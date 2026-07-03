@@ -181,6 +181,76 @@ def build_year(src_hourly, year, stations_meta):
     return ws, hm, wr_out, coverage, qc
 
 
+GREENERY_CSV = os.path.join('SOURCE DATA', 'GREENERY LOCATIONS',
+                            'greenery_NUSws_hourly_202403_202605_revised.csv')
+
+def build_greenery(dash, geo, years):
+    """Per-year greenery JSONs from the wide multi-year CSV.
+    Columns 'WSn_<name>' map to station Gnn (G13 absent). Dates are M/D/YYYY.
+    Daytime unified to 07-19h inclusive (the original 2025 greenery file used
+    7-18h; WS data and all dashboard labels use 7-19h)."""
+    stations = json.load(open(os.path.join(geo, 'beam_greenery_data.json')))['stations']
+    rows = list(csv.reader(open(os.path.join(dash, GREENERY_CSV))))
+    colmap = {}
+    for i, h in enumerate(rows[0]):
+        mm = re.match(r'WS(\d+)_', h or '')
+        if mm:
+            gid = f'G{int(mm.group(1)):02d}'
+            if gid in stations:
+                colmap[i] = gid
+    # per-year accumulators: year -> gid -> ...
+    acc = {y: defaultdict(lambda: {'day': defaultdict(list), 'cell': defaultdict(list)}) for y in years}
+    for r in rows[1:]:
+        if not r[0]:
+            continue
+        try:
+            dpart, tpart = r[0].split(' ')
+            mth, day, yr = map(int, dpart.split('/'))
+            hour = int(tpart.split(':')[0])
+        except ValueError:
+            continue
+        if yr not in acc:
+            continue
+        for ci, gid in colmap.items():
+            v = fnum(r[ci]) if ci < len(r) else None
+            if v is None:
+                continue
+            a = acc[yr][gid]
+            a['day'][f'{yr}-{mth:02d}-{day:02d}'].append((hour, v))
+            a['cell'][(hour, mth)].append(v)
+    heat_all = []
+    out_by_year = {}
+    for y in years:
+        monthly, daily, heat = {}, {}, {}
+        for gid, a in sorted(acc[y].items()):
+            by_month = defaultdict(list)
+            dd = {}
+            for date, hv in sorted(a['day'].items()):
+                m = int(date[5:7])
+                by_month[m].extend(hv)
+                dd[date] = grec(hv)
+            daily[gid] = dd
+            monthly[gid] = {str(m): grec(hv) for m, hv in sorted(by_month.items())}
+            grid = [[r(mean(a['cell'].get((h, m), [])), 1) for m in range(1, 13)]
+                    for h in range(24)]
+            heat[gid] = grid
+            heat_all.extend(v for row in grid for v in row if v is not None)
+        out_by_year[y] = {'stations': stations, 'monthly': monthly, 'daily': daily, 'heat': heat}
+    rng = {'min': round(min(heat_all), 1), 'max': round(max(heat_all), 1)}
+    for y, obj in out_by_year.items():
+        obj['heat_range'] = rng
+        p = os.path.join(geo, f'beam_greenery_data_{y}.json')
+        json.dump(obj, open(p, 'w'), separators=(',', ':'))
+        print(f'  {os.path.basename(p)}: {os.path.getsize(p)/1e6:.2f} MB, '
+              f'{len(obj["monthly"])} stations')
+    print('  greenery heat_range:', rng)
+
+def grec(hv):
+    allv = [v for _, v in hv]
+    dv = [v for h, v in hv if h in DAY_HOURS]
+    nv = [v for h, v in hv if h not in DAY_HOURS]
+    return {'AirTemp': r(mean(allv), 2), 'AirTemp_d': r(mean(dv), 2), 'AirTemp_n': r(mean(nv), 2)}
+
 def main():
     src_root, dash = sys.argv[1], sys.argv[2]
     geo = os.path.join(dash, 'GEOJSON')
@@ -217,6 +287,8 @@ def main():
         meta['hm_ranges'][v] = {'min': round(min(vals), 1), 'max': round(max(vals), 1)}
     json.dump(meta, open(os.path.join(geo, 'beam_meta_years.json'), 'w'), separators=(',', ':'))
     print('meta:', meta['hm_ranges'])
+    print('== greenery')
+    build_greenery(dash, geo, list(PERIODS.values()))
 
 
 if __name__ == '__main__':

@@ -27,7 +27,10 @@ No installation is required, the dashboard runs entirely in the browser and load
 - **Station types:** Ground (lamp posts, columns, railings), Rooftop, and Rooftop 3-axis
 - **Data QC:** hourly wind readings above 8 m/s (physically implausible — faulty sensor) are removed at build time; affected station-years (e.g. WS17 wind, 2026: 72% removed) show a warning banner
 
-Note: the greenery network, tree-canopy (TCM/SVI) layers, and the home weather radial are 2025-only and are labeled as such.
+- **Greenery network (Ta):** multi-year (Mar 2024 – May 2026); 12 stations in 2024 growing to 24 in 2025; follows the year toggle
+- **Sensor specifications:** ℹ button in the map legend opens the full sensor spec table (models, ranges, accuracies)
+
+Note: the tree-canopy (TCM/SVI) layers and the home weather radial are 2025-only and are labeled as such. Greenery daytime values use the same 07–19h definition as WS data (the original 2025 greenery file used 07–18h, so its day/night means shift by ~0.1 °C).
 
 ---
 
@@ -52,6 +55,7 @@ All data is stored in the `GEOJSON/` folder, per year (`<year>` = 2024, 2025, 20
 | `beam_ws_data_<year>.json` | Monthly + daily station data (all variables, all stations) |
 | `beam_windrose_data_<year>.json` | Wind direction and speed distributions |
 | `beam_heatmap_data_<year>.json` | Hour × month and hour × day heatmap matrices |
+| `beam_greenery_data_<year>.json` | Greenery network Air Temp (monthly, daily, hour × month) |
 | `beam_meta_years.json` | Global heatmap color ranges, per-year data coverage, QC flags |
 
 The default year (2025) loads at startup; other years' heatmap/windrose files are lazy-loaded on first switch. The legacy single-year files (`beam_ws_data.json`, `beam_heatmap_data.json`, `beam_windrose_data.json`, `beam_meta.json`) are no longer referenced by `index.html` and are kept only for reference.

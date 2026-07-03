@@ -178,7 +178,9 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 
 <header>
   <div class="beam-logo">
-    <img src="BEAM logo.png" alt="BEAM" style="height:44px;width:auto;display:block;"/>
+    <a href="https://coolnus-beam.sg" target="_blank" rel="noopener" title="CoolNUS-BEAM website">
+      <img src="BEAM logo.png" alt="BEAM" style="height:44px;width:auto;display:block;cursor:pointer;"/>
+    </a>
   </div>
   <div class="hdiv"></div>
   <div>
@@ -235,6 +237,34 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
       <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Select a station on the map</div>
       <div style="font-size:12px;max-width:280px">Click any marker to explore weather data.</div>
     </div>
+  </div>
+</div>
+
+<!-- ── Sensor specification modal ─────────────────────────────────────────── -->
+<div id="specModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeSpecModal()">
+  <div style="background:#fff;border-radius:12px;max-width:780px;width:92%;max-height:85vh;overflow:auto;padding:20px 24px;box-shadow:0 10px 40px rgba(0,0,0,.35)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:15px;color:#1b2a4a">Weather Station Sensor Information</b>
+      <button type="button" onclick="closeSpecModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;line-height:1">✕</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:2px solid #1b2a4a;text-align:left">
+        <th style="padding:6px 8px">Type</th><th style="padding:6px 8px">Model</th><th style="padding:6px 8px">Parameter</th>
+        <th style="padding:6px 8px">Range</th><th style="padding:6px 8px">Resolution</th><th style="padding:6px 8px">Accuracy</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="3" style="padding:6px 8px;vertical-align:top;font-weight:600">Data logger</td><td rowspan="3" style="padding:6px 8px;vertical-align:top">LSI Alpha-Log DLALA0100.1</td><td style="padding:6px 8px">Absolute pressure</td><td style="padding:6px 8px">500–1100 hPa</td><td style="padding:6px 8px">0.084 hPa</td><td style="padding:6px 8px">± 1 hPa</td></tr>
+        <tr><td style="padding:6px 8px">Wind speed (ultrasonic)</td><td style="padding:6px 8px">0–60 m/s</td><td style="padding:6px 8px">0.01 m/s</td><td style="padding:6px 8px">± 0.3 m/s</td></tr>
+        <tr><td style="padding:6px 8px">Wind direction (ultrasonic)</td><td style="padding:6px 8px">0–360°</td><td style="padding:6px 8px">0.1°</td><td style="padding:6px 8px">± 3°</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="3" style="padding:6px 8px;vertical-align:top;font-weight:600">All-in-one weather sensors</td><td rowspan="3" style="padding:6px 8px;vertical-align:top">LSI DNB200</td><td style="padding:6px 8px">Temperature</td><td style="padding:6px 8px">−40 °C – 80 °C</td><td style="padding:6px 8px">0.1 °C</td><td style="padding:6px 8px">± 0.3 °C</td></tr>
+        <tr><td style="padding:6px 8px">Relative humidity</td><td style="padding:6px 8px">0–100%</td><td style="padding:6px 8px">0.1%</td><td style="padding:6px 8px">3%</td></tr>
+        <tr><td style="padding:6px 8px">Pressure</td><td style="padding:6px 8px">600–1100 hPa</td><td style="padding:6px 8px">0.1 hPa</td><td style="padding:6px 8px">± 0.5 hPa</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px;font-weight:600">Pyranometer</td><td style="padding:6px 8px">LSI DPA863</td><td style="padding:6px 8px">Solar radiation</td><td style="padding:6px 8px">0–2000 W/m²</td><td style="padding:6px 8px">—</td><td style="padding:6px 8px">± 10%</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px;font-weight:600">Rain gauge</td><td style="padding:6px 8px">LSI DQA230.1</td><td style="padding:6px 8px">Rainfall amount</td><td style="padding:6px 8px">0–500 mm/h</td><td style="padding:6px 8px">0.2 mm</td><td style="padding:6px 8px">± 0.2 mm (0–20 mm/h) · 1% (20–240 mm/h) · 2% (&gt;240 mm/h)</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="2" style="padding:6px 8px;vertical-align:top;font-weight:600">3-axis ultrasonic anemometer</td><td rowspan="2" style="padding:6px 8px;vertical-align:top">LSI DNB146</td><td style="padding:6px 8px">Wind speed</td><td style="padding:6px 8px">0–70 m/s</td><td style="padding:6px 8px">0.01 m/s</td><td style="padding:6px 8px">± 1%</td></tr>
+        <tr><td style="padding:6px 8px">Wind direction</td><td style="padding:6px 8px">0–360°</td><td style="padding:6px 8px">0.1°</td><td style="padding:6px 8px">± 1%</td></tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -345,7 +375,9 @@ async function ensureYear(y){
   if(!slot._ws) slot._ws=fetchJson(`GEOJSON/beam_ws_data_${y}.json`).then(d=>slot.WS=d);
   if(!slot._hm) slot._hm=fetchJson(`GEOJSON/beam_heatmap_data_${y}.json`).then(d=>slot.HM=d);
   if(!slot._wr) slot._wr=fetchJson(`GEOJSON/beam_windrose_data_${y}.json`).then(d=>slot.WR=d);
-  await Promise.all([slot._ws,slot._hm,slot._wr]);
+  if(!slot._gr) slot._gr=fetchJson(`GEOJSON/beam_greenery_data_${y}.json`).then(d=>slot.GR=d)
+    .catch(e=>{console.warn('Greenery data unavailable for',y,e); slot.GR=null;});
+  await Promise.all([slot._ws,slot._hm,slot._wr,slot._gr]);
   return slot;
 }
 
@@ -356,6 +388,7 @@ async function setYear(y){
   try{
     const slot=await ensureYear(y);
     activeYear=y; WS=slot.WS; HM=slot.HM; WR=slot.WR;
+    if(slot.GR) GR=slot.GR;   // greenery network (markers persist; charts read GR)
     setupRanges();
   }catch(e){
     console.error('Failed to load year',y,e);
@@ -401,12 +434,7 @@ async function loadData(){
     const hs=document.getElementById('hsubYear'); if(hs)hs.textContent=YEAR_SPAN[activeYear]||activeYear;
     updateMonthOptions();
     document.getElementById('loadSub').textContent='Loading wind & meta (3/5)…';
-    try{
-      GR=await fetch('GEOJSON/beam_greenery_data.json').then(r=>r.json());
-    }catch(e){
-      console.warn('Greenery station data unavailable:', e);
-      GR=null;
-    }
+    GR=slot.GR||null;   // per-year greenery data, loaded by ensureYear
     document.getElementById('loadSub').textContent='Loading tree canopy shade model (4/5)…';
     try{
       [TCM, SVI, TCMVALID]=await Promise.all([
@@ -842,13 +870,13 @@ function renderCompareGreenery(){
 
     <div class="chart-card">
       <div class="chart-title">${vi.label} — Monthly Trend Comparison</div>
-      <div class="chart-sub">${modeNote} · Jan–Dec 2025</div>
+      <div class="chart-sub">${modeNote} · ${activeYear}</div>
       <div class="cmp-legend-row">${legendItems}</div>
       <div class="chart-wrap" style="height:234px"><canvas id="cmp_gr_monthly"></canvas></div>
     </div>
 
     ${ms===0?`<div class="chart-card">
-      <div class="chart-title">${vi.label} — Daily Comparison (2025)</div>
+      <div class="chart-title">${vi.label} — Daily Comparison (${activeYear})</div>
       <div class="chart-sub">${modeNote}</div>
       <div class="cmp-legend-row">${legendItems}</div>
       <div class="chart-wrap" style="height:208px"><canvas id="cmp_gr_daily"></canvas></div>
@@ -961,6 +989,10 @@ function renderCompareGreenery(){
   });
 }
 
+// ── Sensor spec modal ───────────────────────────────────────────────────────
+function showSpecModal(){ document.getElementById('specModal').style.display='flex'; }
+function closeSpecModal(){ document.getElementById('specModal').style.display='none'; }
+
 // ── Home / Charts toggle ───────────────────────────────────────────────────
 function showHome(){
   homeVisible=true;
@@ -1041,25 +1073,16 @@ function initMap(){
   // ── Greenery network markers (2025 Air Temp only, 24 stations) ─────────
   const greeneryLayer=L.layerGroup();
   const GR_COLOR='#1b5e20', GR_SEL='#1a73e8';
-  const GR_W=28, GR_H=25; // triangle bounding box
+  const GR_W=26; // circle diameter
   function grMarkerHtml(gid,sel){
     const cmpIdx=compareGreenery.indexOf(gid);
     const bg=compareMode&&cmpIdx>=0 ? CMP_COLORS[cmpIdx] : sel ? GR_SEL : GR_COLOR;
-    const num=String(parseInt(gid.slice(1),10));
-    const innerW=GR_W-6, innerH=GR_H-5;
-    // Triangle via CSS border-trick: white triangle (border look) behind a smaller colored triangle on top.
-    return `<div style="position:relative;width:${GR_W}px;height:${GR_H}px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));">
-      <div style="position:absolute;top:0;left:0;width:0;height:0;
-        border-left:${GR_W/2}px solid transparent;border-right:${GR_W/2}px solid transparent;
-        border-bottom:${GR_H}px solid #fff;"></div>
-      <div style="position:absolute;top:3px;left:${(GR_W-innerW)/2}px;width:0;height:0;
-        border-left:${innerW/2}px solid transparent;border-right:${innerW/2}px solid transparent;
-        border-bottom:${innerH}px solid ${bg};"></div>
-      <div style="position:absolute;bottom:1px;left:0;width:${GR_W}px;text-align:center;font-size:9px;font-weight:700;color:#fff;line-height:1;">${num}</div>
-    </div>`;
+    const label='G'+String(parseInt(gid.slice(1),10)).padStart(2,'0');
+    // Plain circle, no outline
+    return `<div style="width:${GR_W}px;height:${GR_W}px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45)">${label}</div>`;
   }
   function makeGrIcon(gid,sel){
-    return L.divIcon({html:grMarkerHtml(gid,sel),iconSize:[GR_W,GR_H],iconAnchor:[GR_W/2,GR_H/2],className:''});
+    return L.divIcon({html:grMarkerHtml(gid,sel),iconSize:[GR_W,GR_W],iconAnchor:[GR_W/2,GR_W/2],className:''});
   }
   if(GR && GR.stations){
     refreshGreeneryMarkers=function(){
@@ -1099,7 +1122,9 @@ function initMap(){
       <div class="leg-item"><div class="leg-rect" style="background:#c62828"></div>Rooftop</div>
       <div class="leg-item"><div class="leg-rect3" style="background:#7b1fa2"></div>Rooftop 3-axis</div>
       <div class="leg-item"><div class="leg-circle" style="background:#1a73e8"></div>Selected</div>
-      <div class="leg-item"><div class="leg-tri"></div>Greenery (Ta only)</div>`;
+      <div class="leg-item"><div class="leg-circle" style="background:#1b5e20"></div>Greenery (Ta only)</div>
+      <button type="button" onclick="showSpecModal()" style="margin-top:5px;padding:3px 9px;border-radius:12px;border:1px solid #1b2a4a;background:#fff;color:#1b2a4a;cursor:pointer;font-size:10px;font-weight:700">ℹ Specifications</button>`;
+    L.DomEvent.disableClickPropagation(d);
     return d;
   };
   leg.addTo(mapInstance);
@@ -1143,14 +1168,17 @@ function initMap(){
       geojsonLayers[def.name] = layer;
       overlayControl[def.name] = layer;
     });
-    overlayControl['📡 BEAM WS Stations'] = wsLayer;
-    if(GR && GR.stations) overlayControl['📍 Greenery Stations (Ta)'] = greeneryLayer;
+    const pinSvg=c=>`<svg width="10" height="13" viewBox="0 0 24 32" style="vertical-align:-2px"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${c}"/><circle cx="12" cy="12" r="5" fill="#fff"/></svg>`;
+    overlayControl[`${pinSvg('#000')} BEAM WS Stations`] = wsLayer;
+    if(GR && GR.stations) overlayControl[`${pinSvg('#1b5e20')} Greenery Stations (Ta)`] = greeneryLayer;
 
-    // Layer toggle control (top-right of map)
-    L.control.layers(null, overlayControl, {
+    // Layer toggle control (top-right of map), with a LAYERS title
+    const layersCtl=L.control.layers(null, overlayControl, {
       position: 'topright',
       collapsed: false
     }).addTo(mapInstance);
+    layersCtl.getContainer().insertAdjacentHTML('afterbegin',
+      '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;margin:2px 4px 5px;color:#1b2a4a">LAYERS</div>');
   }).catch(e => console.warn('GeoJSON load error:', e));
 }
 
@@ -1209,7 +1237,7 @@ function renderGreenery(){
       <div><div class="sel-name">Greenery Station — ${meta.name}</div>
       <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)} · Air Temp only</div></div>
     </div>
-    ${activeYear!==2025?`<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#e8f5e9;border:1px solid #2e7d32;font-size:11px;color:#1b5e20">🌿 The greenery network has <b>2025 data only</b> — shown here regardless of the selected year (${activeYear}).</div>`:''}
+    ${!GR.monthly?.[gid]?`<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#e8f5e9;border:1px solid #2e7d32;font-size:11px;color:#1b5e20">🌿 No data for ${gid} in ${activeYear} — this station wasn't active yet or hasn't reported.</div>`:''}
     <div class="stats-row">
       <div class="stat-box"><div class="stat-val">${avg}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Annual Avg</div></div>
       <div class="stat-box"><div class="stat-val">${vmin}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Min</div></div>
@@ -1243,7 +1271,7 @@ function renderGreeneryCharts(cont,ms){
     cont.innerHTML=toggleHtml+(grid?`
       <div class="hm-card">
         <div class="hm-title">${vi.label} <span style="font-weight:400;color:var(--muted)">(${vi.unit})</span></div>
-        <div class="chart-sub" style="margin-bottom:6px">Hour × month, 2025 · months with no data are left blank</div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, ${activeYear} · months with no data are left blank</div>
         <div class="hm-body">
           <div class="hm-canvas-wrap"><canvas id="gr_hm"></canvas></div>
           <div class="hm-colorbar">
@@ -1251,7 +1279,7 @@ function renderGreeneryCharts(cont,ms){
             <canvas id="gr_hm_cb"></canvas>
           </div>
         </div>
-      </div>`:`<div class="chart-card"><div class="chart-title">No heatmap data</div><div class="chart-sub">This station has no hourly data for 2025.</div></div>`);
+      </div>`:`<div class="chart-card"><div class="chart-title">No heatmap data</div><div class="chart-sub">This station has no hourly data for ${activeYear}.</div></div>`);
     if(grid){
       requestAnimationFrame(()=>{
         // grid[hour][month0] → transpose to data2d[month][hour] for drawHeatmapNew (Y=month, X=hour)
@@ -1277,7 +1305,7 @@ function renderGreeneryCharts(cont,ms){
     cont.innerHTML=`${toggleHtml}
       <div class="chart-card">
         <div class="chart-title">${vi.label} — Monthly Average</div>
-        <div class="chart-sub">${gid} · Jan–Dec 2025 · months without data are left blank</div>
+        <div class="chart-sub">${gid} · ${activeYear} · months without data are left blank</div>
         <div class="chart-wrap" style="height:155px"><canvas id="gr_monthly"></canvas></div>
       </div>
       <div class="chart-card">
@@ -1286,7 +1314,7 @@ function renderGreeneryCharts(cont,ms){
         <div class="chart-wrap" style="height:200px"><canvas id="gr_monthly_bp"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">${vi.label} — Daily (2025)</div>
+        <div class="chart-title">${vi.label} — Daily (${activeYear})</div>
         <div class="chart-sub">${gid} · Alternating colors by month · Label at mid-month</div>
         <div class="chart-wrap" style="height:140px"><canvas id="gr_daily"></canvas></div>
       </div>
