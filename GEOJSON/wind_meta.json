@@ -1,0 +1,38 @@
+{
+ "west": 103.755761024496,
+ "south": 1.281864286895,
+ "east": 103.797018227976,
+ "north": 1.315001721605,
+ "nx": 376,
+ "ny": 302,
+ "encoding": {
+  "order": "speed_then_dir",
+  "type": "uint16le",
+  "speed_scale": 0.001,
+  "dir_scale": 0.1,
+  "nodata": 65535,
+  "dir_convention": "meteorological_from_north_cw"
+ },
+ "classes": {
+  "bounds_ms": [
+   0.0,
+   0.1,
+   0.2,
+   0.3,
+   0.4,
+   0.5
+  ],
+  "colors": [
+   "#4575b4",
+   "#91bfdb",
+   "#e0f3f8",
+   "#fee090",
+   "#fc8d59",
+   "#d73027"
+  ]
+ },
+ "snapshot": "2 July 2024, 2 PM",
+ "height": "1.5 m",
+ "source": "CFD simulation, 12 m grid",
+ "units": "m/s"
+}

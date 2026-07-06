@@ -125,9 +125,16 @@ header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:c
 
 .map-legend{background:rgba(255,255,255,.95);padding:8px 10px;border-radius:8px;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,.2);line-height:2;}
 .hotspot-label{background:transparent;border:none;box-shadow:none;font-size:11px;font-weight:700;color:#c62828;}
-.leaflet-control-layers{font-size:11px;border-radius:8px!important;box-shadow:0 1px 6px rgba(0,0,0,.2)!important;}
+.leaflet-control-layers{font-size:11px;border-radius:8px!important;box-shadow:0 1px 6px rgba(0,0,0,.2)!important;width:185px;box-sizing:border-box;}
 .leaflet-control-layers-expanded{padding:8px 10px!important;}
 .leaflet-control-layers label{display:flex;align-items:center;gap:4px;margin:2px 0;}
+/* Wind CFD layer */
+.wind-overlay-img{image-rendering:pixelated;}
+.wind-tip{position:absolute;z-index:1200;pointer-events:none;display:none;background:rgba(255,255,255,.97);border-radius:6px;padding:5px 9px;font-size:12px;line-height:1.5;box-shadow:0 1px 6px rgba(0,0,0,.3);white-space:nowrap;}
+.wind-tip-arrow{display:inline-block;font-weight:700;color:#1a73e8;font-size:13px;}
+.layout.wind-full{grid-template-columns:100% 0;}
+.layout.wind-full .right-panel{display:none;}
+body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .leg-item{display:flex;align-items:center;gap:5px;}
 .leg-circle{width:14px;height:14px;border-radius:50%;border:2px solid #fff;flex-shrink:0;}
 .leg-rect{width:16px;height:12px;border-radius:3px;border:2px solid #fff;flex-shrink:0;}
@@ -1095,6 +1102,7 @@ function initMap(){
       .addTo(wsLayer)
       .bindTooltip(`<b>${sid}</b><br>${meta.type}<br><span style="font-size:11px;color:#555">${WS_LOCATIONS[sid]||''}</span>`,{direction:'top',offset:[0,-12]})
       .on('click',()=>{
+        if(windMode)return; // Climatic Map mode is exclusive — station charts disabled
         if(compareMode){
           if(compareGreenery.length)return; // a Greenery comparison is already active — one network at a time
           const idx=compareStations.indexOf(sid);
@@ -1136,6 +1144,7 @@ function initMap(){
         .addTo(greeneryLayer)
         .bindTooltip(`<b>${gid}</b> — Greenery Station<br><span style="font-size:11px;color:#555">${meta.name}</span>`,{direction:'top',offset:[0,-10]})
         .on('click',()=>{
+          if(windMode)return; // Climatic Map mode is exclusive — station charts disabled
           if(compareMode){
             if(compareStations.length)return; // a WS comparison is already active — one network at a time
             const idx=compareGreenery.indexOf(gid);
@@ -1171,6 +1180,138 @@ function initMap(){
     return d;
   };
   leg.addTo(mapInstance);
+
+  // ── Wind CFD layer (2 Jul 2024 2 PM, 1.5 m height; lazy-loaded) ────────
+  // Assets built by tools/build_wind_layer.py from SOURCE DATA/WIND_RAW.
+  // wind_grid.bin: Uint16 LE, speeds (mm/s) then directions (0.1°), 65535=NoData.
+  const windLayer=L.layerGroup();
+  let windD=null, windLoading=false, windCanvas=null, windRedraw=()=>{}, windMode=false;
+  const WIND_CLASSES=[[0,'#4575b4'],[0.1,'#91bfdb'],[0.2,'#e0f3f8'],[0.3,'#fee090'],[0.4,'#fc8d59'],[0.5,'#d73027']];
+  const WIND_SECT=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+
+  const windTip=L.DomUtil.create('div','wind-tip',mapInstance.getContainer());
+
+  const windLegCtl=L.control({position:'bottomleft'});
+  windLegCtl.onAdd=()=>{
+    const d=L.DomUtil.create('div','map-legend');
+    // arrow glyphs mirror the canvas arrows (same lengths/weights/open head); class 0 has none
+    const AL=[0,9,12,15,19,24], AW=[0,1,1.25,1.55,1.9,2.3];
+    const arrowSvg=k=>{
+      if(k===0)return '<span style="display:inline-block;width:28px;flex-shrink:0"></span>';
+      const len=AL[k], h=3+0.9*k, x1=1+len;
+      return `<svg width="28" height="12" viewBox="0 0 28 12" style="flex-shrink:0"><g stroke="#14121a" stroke-width="${AW[k]}" stroke-linecap="round" fill="none"><line x1="1" y1="6" x2="${x1}" y2="6"/><line x1="${x1}" y1="6" x2="${(x1-h*0.9).toFixed(1)}" y2="${(6-h*0.45).toFixed(1)}"/><line x1="${x1}" y1="6" x2="${(x1-h*0.9).toFixed(1)}" y2="${(6+h*0.45).toFixed(1)}"/></g></svg>`;
+    };
+    const rows=WIND_CLASSES.map(([lo,c],i)=>{
+      const lbl=i===WIND_CLASSES.length-1?`&gt; ${lo.toFixed(1)} m/s`:`${lo.toFixed(1)} – ${WIND_CLASSES[i+1][0].toFixed(1)}`;
+      return `<div class="leg-item" style="gap:6px"><div style="width:14px;height:11px;background:${c};border:1px solid #999;flex-shrink:0"></div>${arrowSvg(i)}<span>${lbl}</span></div>`;
+    }).join('');
+    d.innerHTML=`<b style="font-size:10px;display:block;margin-bottom:2px">Pedestrian-Level Wind Speed (m/s)</b>${rows}
+      <div style="font-size:9px;color:#666;line-height:1.45;margin-top:5px;max-width:180px">Wind simulated by Computational Fluid Dynamics (CFD) with boundary conditions of 2 July 2024, 2 PM. Grid size: 12 m; wind speed at 1.5 m above ground.<br><span style="color:#888">CFD simulation: Daniel HII Jun Chung &amp; Takamasa HASAMA, Kajima Technical Research Institute Singapore (KaTRIS).</span><br>Hover the map for values.</div>`;
+    return d;
+  };
+
+  function windCellAt(ll){
+    if(!windD)return null;
+    const m=windD.meta;
+    if(ll.lng<m.west||ll.lng>=m.east||ll.lat<=m.south||ll.lat>m.north)return null;
+    const col=Math.floor((ll.lng-m.west)/windD.dx), row=Math.floor((m.north-ll.lat)/windD.dy);
+    const i=row*m.nx+col, s=windD.sp[i];
+    if(s===65535)return null;
+    return {speed:s*0.001, dir:windD.dr[i]*0.1, row, col};
+  }
+
+  function initWindCanvas(){
+    windCanvas=L.DomUtil.create('canvas','');
+    windCanvas.style.pointerEvents='none';
+    mapInstance.getPanes().overlayPane.appendChild(windCanvas);
+    windRedraw=function(){
+      if(!windD)return;
+      const sz=mapInstance.getSize();
+      windCanvas.width=sz.x; windCanvas.height=sz.y;
+      L.DomUtil.setPosition(windCanvas,mapInstance.containerPointToLayerPoint([0,0]));
+      if(!mapInstance.hasLayer(windLayer))return;
+      const ctx=windCanvas.getContext('2d'), m=windD.meta;
+      const p1=mapInstance.latLngToContainerPoint([m.north,m.west]);
+      const p2=mapInstance.latLngToContainerPoint([m.north-windD.dy,m.west+windD.dx]);
+      const cellPx=Math.max(Math.abs(p2.x-p1.x),0.001);
+      const stride=Math.max(1,Math.round(40/cellPx));   // arrows at every zoom, ~40 px apart; stride=1 (all cells) once zoomed in
+      const bb=mapInstance.getBounds();
+      const c0=Math.max(0,Math.floor((bb.getWest()-m.west)/windD.dx)-stride);
+      const c1=Math.min(m.nx-1,Math.ceil((bb.getEast()-m.west)/windD.dx)+stride);
+      const r0=Math.max(0,Math.floor((m.north-bb.getNorth())/windD.dy)-stride);
+      const r1=Math.min(m.ny-1,Math.ceil((m.north-bb.getSouth())/windD.dy)+stride);
+      // ArcGIS-style graduated arrows (thin line + open head), sized by speed class.
+      // Class 0 (0.0–0.1 m/s) intentionally not drawn.
+      const A_LEN=[0,9,12,15,19,24], A_LW=[0,1,1.25,1.55,1.9,2.3];
+      ctx.strokeStyle='rgba(15,18,25,.9)'; ctx.lineCap='round';
+      for(let row=r0;row<=r1;row+=stride)for(let col=c0;col<=c1;col+=stride){
+        const i=row*m.nx+col, s=windD.sp[i];
+        if(s===65535||s<100)continue;                   // NoData or calm (<0.1 m/s)
+        const k=Math.min(5,Math.floor(s/100));          // speed class 1..5 (0.1 m/s bins, 5 = >0.5)
+        const a=(windD.dr[i]*0.1+180)*Math.PI/180;      // flow direction (toward)
+        const ux=Math.sin(a), uy=-Math.cos(a);
+        const p=mapInstance.latLngToContainerPoint([m.north-(row+0.5)*windD.dy, m.west+(col+0.5)*windD.dx]);
+        const len=A_LEN[k], h=3+0.9*k;
+        const x1=p.x+ux*len/2, y1=p.y+uy*len/2;
+        const aL=a+Math.PI-0.46, aR=a+Math.PI+0.46;     // open-head barbs
+        ctx.lineWidth=A_LW[k];
+        ctx.beginPath();
+        ctx.moveTo(p.x-ux*len/2, p.y-uy*len/2); ctx.lineTo(x1,y1);
+        ctx.moveTo(x1,y1); ctx.lineTo(x1+h*Math.sin(aL), y1-h*Math.cos(aL));
+        ctx.moveTo(x1,y1); ctx.lineTo(x1+h*Math.sin(aR), y1-h*Math.cos(aR));
+        ctx.stroke();
+      }
+    };
+    mapInstance.on('moveend zoomend resize',windRedraw);
+  }
+
+  function loadWind(){
+    if(windLoading)return; windLoading=true;
+    Promise.all([
+      fetch('GEOJSON/wind_meta.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}),
+      fetch('GEOJSON/wind_grid.bin').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();})
+    ]).then(([meta,buf])=>{
+      const n=meta.nx*meta.ny;
+      windD={meta, sp:new Uint16Array(buf,0,n), dr:new Uint16Array(buf,n*2,n),
+             dx:(meta.east-meta.west)/meta.nx, dy:(meta.north-meta.south)/meta.ny};
+      L.imageOverlay('GEOJSON/wind_overlay.png',[[meta.south,meta.west],[meta.north,meta.east]],
+        {opacity:0.72, className:'wind-overlay-img', interactive:false}).addTo(windLayer);
+      initWindCanvas(); windRedraw();
+    }).catch(e=>{windLoading=false; console.warn('Wind layer load failed:',e);});
+  }
+
+  let windHl=null;                                     // hovered-cell highlight
+  function clearWindHl(){if(windHl){mapInstance.removeLayer(windHl);windHl=null;}}
+  mapInstance.on('mousemove',e=>{
+    const c=mapInstance.hasLayer(windLayer)?windCellAt(e.latlng):null;
+    if(!c){windTip.style.display='none';clearWindHl();return;}
+    const sect=WIND_SECT[Math.round(c.dir/22.5)%16];
+    windTip.innerHTML=`<b>${c.speed.toFixed(2)} m/s</b> <span class="wind-tip-arrow" style="transform:rotate(${Math.round(c.dir+180)}deg)">&uarr;</span> ${sect} (${Math.round(c.dir)}&deg;)`;
+    const hb=[[windD.meta.north-(c.row+1)*windD.dy, windD.meta.west+c.col*windD.dx],
+              [windD.meta.north-c.row*windD.dy,     windD.meta.west+(c.col+1)*windD.dx]];
+    if(windHl)windHl.setBounds(hb);
+    else windHl=L.rectangle(hb,{color:'#fff',weight:1,fillColor:'#fff',fillOpacity:0.5,interactive:false}).addTo(mapInstance);
+    windTip.style.display='block';
+    const sz=mapInstance.getSize();
+    windTip.style.left=Math.min(e.containerPoint.x+14, sz.x-windTip.offsetWidth-6)+'px';
+    windTip.style.top=Math.max(e.containerPoint.y-windTip.offsetHeight-10, 6)+'px';
+  });
+  mapInstance.getContainer().addEventListener('mouseleave',()=>{windTip.style.display='none';clearWindHl();});
+  mapInstance.on('overlayadd',e=>{if(e.layer===windLayer){
+    windMode=true;
+    document.querySelector('.layout').classList.add('wind-full');   // map → full width
+    document.body.classList.add('wind-mode');                       // variable bar disabled
+    if(!windD)loadWind();
+    windLegCtl.addTo(mapInstance);
+    setTimeout(()=>mapInstance.invalidateSize(),60);                // fires 'resize' → windRedraw
+  }});
+  mapInstance.on('overlayremove',e=>{if(e.layer===windLayer){
+    windMode=false;
+    document.querySelector('.layout').classList.remove('wind-full');
+    document.body.classList.remove('wind-mode');
+    mapInstance.removeControl(windLegCtl); windTip.style.display='none'; clearWindHl();
+    setTimeout(()=>mapInstance.invalidateSize(),60);
+  }});
 
   // ── GeoJSON overlay layers ─────────────────────────────────────────────
   const geojsonLayers = {};
@@ -1222,6 +1363,14 @@ function initMap(){
     }).addTo(mapInstance);
     layersCtl.getContainer().insertAdjacentHTML('afterbegin',
       '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;margin:2px 4px 5px;color:#1b2a4a">LAYERS</div>');
+
+    // Climatic Map — separate panel below LAYERS; exclusive full-width mode
+    const climCtl=L.control.layers(null, {'💨 Wind Map (CFD)': windLayer}, {
+      position: 'topright',
+      collapsed: false
+    }).addTo(mapInstance);
+    climCtl.getContainer().insertAdjacentHTML('afterbegin',
+      '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;margin:2px 4px 5px;color:#1b2a4a">CLIMATIC MAP</div>');
   }).catch(e => console.warn('GeoJSON load error:', e));
 }
 
