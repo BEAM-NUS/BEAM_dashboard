@@ -3,7 +3,7 @@
 An interactive, browser-based dashboard for exploring microclimate data from 40 weather stations across NUS Kent Ridge Campus and UTown.
 
 **Live dashboard → [beam-nus.github.io/BEAM_dashboard](https://beam-nus.github.io/BEAM_dashboard/)**
-**Version: 2.0 (July 2026)** — multi-year: Apr 2024 – Jun 2026
+**Version: 2.2 (July 2026)** — multi-year: Apr 2024 – Jun 2026 · Wind CFD map · Tree Canopy (SVI/TCM)
 
 ---
 
@@ -29,8 +29,10 @@ No installation is required, the dashboard runs entirely in the browser and load
 
 - **Greenery network (Ta):** multi-year (Mar 2024 – May 2026); 12 stations in 2024 growing to 24 in 2025; follows the year toggle
 - **Sensor specifications:** ℹ button in the map legend opens the full sensor spec table (models, ranges, accuracies)
+- **Wind Map (CFD):** CLIMATIC MAP panel toggle — full-width pedestrian-level wind speed at 1.5 m height (12 m CFD grid), colour overlay + graduated direction arrows, per-cell hover tooltip
+- **Tree Canopy (SVI/TCM):** per-station street-view panorama with Real/Segmented/Blended toggle, SVI pixel-composition donut, Sky View Factor, annual sun-path shade overlay, hour × month canopy transmittance heatmap, and shade-by-hour/month charts; network overview and Compare-mode support. Modeled from one panorama per station (Apr 2024 / Jan 2025 campaigns — capture date shown on each card); 4 stations flagged excluded for sensor/model faults
 
-Note: the tree-canopy (TCM/SVI) layers and the home weather radial are 2025-only and are labeled as such. Greenery daytime values use the same 07–19h definition as WS data (the original 2025 greenery file used 07–18h, so its day/night means shift by ~0.1 °C).
+Note: the home weather radial is 2025-only and labeled as such. Greenery daytime values use the same 07–19h definition as WS data (the original 2025 greenery file used 07–18h, so its day/night means shift by ~0.1 °C).
 
 ---
 
@@ -57,6 +59,9 @@ All data is stored in the `GEOJSON/` folder, per year (`<year>` = 2024, 2025, 20
 | `beam_heatmap_data_<year>.json` | Hour × month and hour × day heatmap matrices |
 | `beam_greenery_data_<year>.json` | Greenery network Air Temp (monthly, daily, hour × month) |
 | `beam_meta_years.json` | Global heatmap color ranges, per-year data coverage, QC flags |
+| `wind_overlay.png` / `wind_grid.bin` / `wind_meta.json` | Wind CFD layer: colour overlay, packed per-cell speeds/directions, grid metadata (built with `tools/build_wind_layer.py`) |
+
+SVI/TCM assets (panoramas, segmentation, shade-model charts and data) are **not in this repo** — they load at runtime from a public S3 bucket (`beam-dashboard-assets`, prefix `svi_tcm/2024-2025/`), with a local `TCM/` folder as offline fallback for development. The bucket needs a CORS policy allowing GET from the dashboard origins.
 
 The default year (2025) loads at startup; other years' heatmap/windrose files are lazy-loaded on first switch. The legacy single-year files (`beam_ws_data.json`, `beam_heatmap_data.json`, `beam_windrose_data.json`, `beam_meta.json`) are no longer referenced by `index.html` and are kept only for reference.
 
@@ -103,6 +108,7 @@ To update the dashboard, replace `index.html` with the new version and push to `
 ## Acknowledgements
 
 - **Dashboard development:** Marcel Ignatius (Co_PI CoolNUS-BEAM), with AI assistance from [Anthropic Claude](https://www.anthropic.com)
+- **Wind CFD simulation:** Daniel HII Jun Chung & Takamasa HASAMA, Kajima Technical Research Institute Singapore (KaTRIS)
 - **GitHub deployment:** Joie Lim (Research Assistant, Digital Twin)
 - **Project:** CoolNUS-BEAM (Baselining - Evaluating - Action - Monitoring), National University of Singapore
 - **CoolNUS-BEAM** is funded by the National University of Singapore through the Campus Sustainability initiative and supported by the University Campus Infrastructure (UCI) and the Office of the Deputy President – Research & Technology.
