@@ -150,6 +150,7 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tier-WEAK{background:#fdecea;color:#a12622;border:1.5px solid #c62828;}
 .tcm-banner{border-radius:8px;padding:8px 12px;font-size:11px;line-height:1.5;margin-bottom:10px;}
 .tcm-banner-excluded{background:#fdecea;border:1.5px solid #c62828;color:#7a1a17;}
+.tcm-capture{font-size:10px;color:var(--muted);margin-top:6px;}
 .tcm-banner-info{background:#fff8e1;border:1px solid #f0c36d;color:#6b4c00;}
 .tcm-banner-note{background:#f0f2f7;border:1px solid var(--border);color:var(--muted);}
 .tcm-photo-toggle{display:flex;gap:6px;margin-bottom:8px;}
@@ -165,6 +166,21 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tcm-tier-table th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:4px 6px;border-bottom:2px solid var(--border);}
 .tcm-tier-table td{padding:4px 6px;border-bottom:1px solid #eef1f7;}
 .tcm-tier-table tr.excluded-row{background:#fdecea;}
+.tcm-2col{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:10px;margin-bottom:10px;align-items:stretch;}
+.tcm-col-stack{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.tcm-photo-rel{position:relative;}
+.tcm-photo-rel .tcm-photo-toggle{position:absolute;top:8px;left:8px;z-index:5;margin:0;background:rgba(255,255,255,.88);padding:4px;border-radius:16px;}
+.tcm-circle-card{flex:1;display:flex;align-items:center;gap:14px;}
+.tcm-circle-img{flex:0 0 45%;max-width:230px;}
+.tcm-donut-wrap{position:relative;width:100%;aspect-ratio:1/1;}
+.tcm-circle-img img{width:100%;border-radius:50%;border:1px solid var(--border);display:block;}
+.tcm-circle-info{flex:1;min-width:0;}
+.tcm-legend{display:flex;flex-direction:column;gap:3px;font-size:11.5px;margin-top:6px;}
+.tcm-legend .lg-row{display:flex;align-items:center;gap:7px;}
+.tcm-legend .lg-sw{width:18px;height:12px;border-radius:2px;flex-shrink:0;}
+.tcm-svf-num{font-size:36px;font-weight:800;line-height:1.1;}
+.tcm-svf-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+@media(max-width:980px){.tcm-2col{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -343,7 +359,9 @@ let YEAR_SPAN={};                     // {year: 'Apr–Dec 2024'} from META.cove
 let WS=null, HM=null, WR=null, META=null;
 let GR=null;                                // Greenery network (2025 Air Temp only, 24 stations)
 let TCM=null, SVI=null, TCMVALID=null;      // Tree canopy shade model + SVI segmentation data
-const TCM_BASE='TCM/';
+const TCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com/svi_tcm/2024-2025/';
+const TCM_LOCAL_BASE='TCM/';                // gitignored — only present in local working copies
+let TCM_BASE=TCM_S3_BASE;                   // S3 primary; loadData falls back to local if S3 unreachable
 const TCM_DATA_CACHE={};                    // lazy per-station tcm_data/{id}_hourly_month.json cache
 let activeVar='AirTemp', activeStation=null, activeGreenery=null, dnMode='a';
 let charts={}, mapInstance=null, markers={}, grMarkers={};
@@ -474,11 +492,15 @@ async function loadData(){
     GR=slot.GR||null;   // per-year greenery data, loaded by ensureYear
     document.getElementById('loadSub').textContent='Loading tree canopy shade model (4/5)…';
     try{
-      [TCM, SVI, TCMVALID]=await Promise.all([
-        fetch('TCM/manifest.json').then(r=>r.json()),
-        fetch('TCM/svi_manifest.json').then(r=>r.json()),
-        fetch('TCM/validation_summary.json').then(r=>r.json())
-      ]);
+      const loadTcmSet=base=>Promise.all(['manifest.json','svi_manifest.json','validation_summary.json']
+        .map(f=>fetch(base+f).then(r=>{if(!r.ok)throw new Error(`${base+f}: ${r.status}`);return r.json();})));
+      try{
+        [TCM, SVI, TCMVALID]=await loadTcmSet(TCM_S3_BASE);
+      }catch(e){
+        console.warn('S3 TCM/SVI source unreachable — falling back to local TCM/ folder:', e);
+        TCM_BASE=TCM_LOCAL_BASE;
+        [TCM, SVI, TCMVALID]=await loadTcmSet(TCM_LOCAL_BASE);
+      }
     }catch(e){
       console.warn('TCM/SVI data unavailable — Tree Canopy tab will show an empty state:', e);
       TCM=null; SVI=null; TCMVALID=null;
@@ -819,16 +841,17 @@ function renderCompareCanopy(panel){
       return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
         <div style="font-weight:700;color:${CMP_COLORS[i]};margin-bottom:6px">${sid} <span style="font-size:10px;color:var(--muted);font-weight:400">roof reference — not modeled</span></div>
         <img src="${TCM_BASE+sviRec.blended}" style="width:100%;border-radius:6px" alt="${sid} blended segmentation"/>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">📷 Imagery: ${captureLabel(sviRec.capture)||'—'}</div>
       </div>`;
     }
     return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
         <span style="font-weight:700;color:${CMP_COLORS[i]}">${sid}</span>
-        ${tierBadgeHtml(tcmRec.validation_tier)}
+        <span style="font-size:10px;color:var(--muted)">SVF ${TCM_SVF[sid]!=null?TCM_SVF[sid].toFixed(2):'—'}</span>
         ${tcmRec.excluded?'<span style="font-size:9px;color:#c62828;font-weight:700">⚠ EXCLUDED</span>':''}
       </div>
       <img src="${TCM_BASE+tcmRec.segmentation.blended}" style="width:100%;border-radius:6px;margin-bottom:6px" alt="${sid} blended segmentation"/>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Canopy reduction: <b style="color:var(--text)">${tcmRec.canopy_reduction_pct}%</b> · rank ${tcmRec.shade_rank}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Canopy reduction: <b style="color:var(--text)">${tcmRec.canopy_reduction_pct}%</b> · rank ${tcmRec.shade_rank} · 📷 ${captureLabel(tcmRec.capture)||'—'}</div>
       <img src="${TCM_BASE+tcmRec.tcm_charts.heatmap_transmittance}" style="width:100%;border-radius:6px" alt="${sid} transmittance heatmap"/>
     </div>`;
   }).join('');
@@ -839,7 +862,7 @@ function renderCompareCanopy(panel){
       ${chips}
       <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareStations.length} slot${MAX_CMP-compareStations.length===1?'':'s'} left)`:`<span style="color:#f59e0b">Max ${MAX_CMP} stations reached</span>`}</span>
     </div>
-    <div class="tcm-banner tcm-banner-note">Modeled data, from a single photo per station — accuracy varies by tier (badge above each card). Transmittance heatmaps use a clear-sky reference, not measured weather. See the per-station Tree Canopy tab for full detail and caveats.</div>
+    <div class="tcm-banner tcm-banner-note">Modeled data, from a single photo per station (capture date on each card — two campaigns ~9 months apart, so comparisons mix two canopy states). Transmittance heatmaps show relative shade patterns, not measured weather. See the per-station Tree Canopy tab for full detail.</div>
     <div style="display:grid;grid-template-columns:repeat(${Math.min(compareStations.length,4)},1fr);gap:10px">${cards}</div>`;
 
   panel.querySelectorAll('[data-remove]').forEach(btn=>{
@@ -2117,8 +2140,27 @@ function renderWind(cont,ms){
 // ── TREE CANOPY / TCM-SVI TAB ───────────────────────────────────────────────
 const TCM_CMAPS={
   ghi: CMAPS.GlobalRad,
-  transmittance: ['#0d3b1e','#2e7d32','#8bc34a','#ffee58','#ffa726']
+  transmittance: ['#08306b','#2171b5','#6baed6','#c6dbef','#f7fbff']  // Blues_r, matches the matplotlib PNGs
 };
+
+// Sky-view factor per station — transcribed from tcm_charts/{id}/svf_gauge.png
+// (the value is baked into the gauge image only; not shipped as data in the export)
+const TCM_SVF={WS01:0.75,WS03:0.38,WS04:0.39,WS05:0.53,WS07:0.34,WS08:0.53,WS09:0.68,WS10:0.70,
+  WS11:0.47,WS13:0.67,WS14:0.63,WS15:0.51,WS17:0.53,WS18:0.54,WS20:0.51,WS21:0.46,WS22:0.66,
+  WS23:0.47,WS25:0.85,WS26:0.51,WS27:0.73,WS28:0.73,WS29:0.56,WS30:0.45,WS31:0.35,WS32:0.41,
+  WS33:0.38,WS34:0.50,WS36:0.61,WS39:0.47,WS40:0.55};
+const svfColor=v=>v>=0.7?'#2e7d32':v>=0.4?'#e8962e':'#c62828';  // mirrors gauge PNG colour bands
+
+function captureLabel(capture){
+  if(!capture) return '';
+  const [y,mo,d]=String(capture).split('-');
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]||'';
+  return d?`${+d} ${M} ${y}`:`${M} ${y}`;
+}
+function captureCaptionHtml(rec){
+  const lbl=captureLabel(rec?.capture);
+  return lbl?`<div class="tcm-capture">📷 Imagery captured ${lbl} — segmentation, shade model &amp; pixel stats reflect canopy state at that date</div>`:'';
+}
 
 function tierBadgeHtml(tier){
   const desc={STRONG:'R²≥0.85, MAE≤60 W/m² vs 2yr measured data',
@@ -2139,7 +2181,16 @@ function setCanopyPhoto(mode){
   const img=document.getElementById('tcmPhotoImg');
   const paths=window._canopyPhotoPaths;
   if(img && paths && paths[mode]) img.src=TCM_BASE+paths[mode];
-  document.querySelectorAll('.tcm-photo-btn').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+  document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+
+let sunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
+function setSunpathMode(mode){
+  sunpathMode=mode;
+  const img=document.getElementById('tcmSunpathImg');
+  const p=window._sunpathPaths;
+  if(img && p && p[mode]) img.src=TCM_BASE+p[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
 }
 
 async function getTcmHourlyData(sid){
@@ -2151,44 +2202,58 @@ async function getTcmHourlyData(sid){
   }catch(e){ console.warn('Failed to load tcm_data for',sid,e); return null; }
 }
 
+const TCM_SEG_COLORS={Sky:'#1f77b4',Structure:'#ff7f0e',Vegetation:'#2ca02c',Pavement:'#e377c2',Terrain:'#8c564b',Others:'#7f7f7f'};  // matches the matplotlib donut PNGs
+
 function renderCanopyDonut(sid,comp){
   const el=document.getElementById('tcmDonut');
   if(!el||!comp)return;
-  const colors={Sky:'#4fc3f7',Structure:'#9e9e9e',Vegetation:'#43a047',Pavement:'#8d6e63',Terrain:'#c0ca33',Others:'#ab47bc'};
   const labels=Object.keys(comp);
   const data=labels.map(k=>+(comp[k]*100).toFixed(1));
   charts.tcmDonut=new Chart(el,{
     type:'doughnut',
-    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>colors[l]||'#94a3b8'),borderWidth:1,borderColor:'#fff'}]},
+    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>TCM_SEG_COLORS[l]||'#94a3b8'),borderWidth:1,borderColor:'#fff'}]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:10}},
+      plugins:{legend:{display:false},
         tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed}%`}}}}
   });
+  const lg=document.getElementById('tcmDonutLegend');
+  if(lg) lg.innerHTML=labels.map(l=>`<div class="lg-row"><span class="lg-sw" style="background:${TCM_SEG_COLORS[l]||'#94a3b8'}"></span>${l} (${(comp[l]*100).toFixed(1)}%)</div>`).join('');
 }
 
 async function loadCanopyHeatmaps(sid){
   const d=await getTcmHourlyData(sid);
   // Bail if the user switched stations/tabs while this fetch was in flight — avoids painting
   // a stale station's data into a same-id canvas that now belongs to a different station.
-  if(!d || sid!==activeStation || activeVar!=='Canopy' || !document.getElementById('tcmHmGhi'))return;
-  const months=d.months;
-  const toGrid=varKey=>months.map(mo=>d[varKey]?.[mo]||[]);
+  if(!d || sid!==activeStation || activeVar!=='Canopy' || !document.getElementById('tcmHmTrans'))return;
+  // Collapse the multi-year record to 12 calendar months (mean across years):
+  // clear-sky geometry + a fixed canopy photo repeat identically every year.
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const grid=[], monthly=[];
+  for(let m=1;m<=12;m++){
+    const rows=d.months.filter(k=>+k.slice(5,7)===m).map(k=>d.transmittance_tcm?.[k]||[]);
+    const row=Array.from({length:24},(_,h)=>{
+      const vals=rows.map(r=>r[h]).filter(v=>v!=null);
+      return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+    });
+    grid.push(row);
+    const day=row.slice(7,20).filter(v=>v!=null);
+    monthly.push(day.length?+(day.reduce((a,b)=>a+b,0)/day.length).toFixed(3):null);
+  }
   requestAnimationFrame(()=>{
-    drawHeatmapNew('tcmHmGhi',   toGrid('ghi_utc_tcm_Wm2'), TCM_CMAPS.ghi,           months, {min:0,max:1000}, 'tcmHmGhiCb',   'W/m²', [0,200,400,600,800,1000], 7, 19);
-    drawHeatmapNew('tcmHmTrans', toGrid('transmittance_tcm'), TCM_CMAPS.transmittance, months, {min:0,max:1},    'tcmHmTransCb', '',     [0,0.25,0.5,0.75,1],       7, 19);
+    drawHeatmapNew('tcmHmTrans', grid, TCM_CMAPS.transmittance, MON, {min:0,max:1}, 'tcmHmTransCb', '', [0,0.25,0.5,0.75,1], 7, 19, 0.45);
+    const bar=document.getElementById('tcmShadeMonth');
+    if(bar){
+      charts.tcmShadeMonth=new Chart(bar,{
+        type:'bar',
+        data:{labels:Array.from({length:12},(_,i)=>String(i+1)),
+          datasets:[{data:monthly,backgroundColor:'#43a047',borderRadius:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          scales:{y:{min:0,max:1,ticks:{font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:9}}}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Month '+c[0].label,label:c=>`Mean transmittance: ${c.parsed.y}`}}}}
+      });
+    }
   });
 }
-
-const TCM_STATIC_CHARTS=[
-  ['hourly_shade_profile','Most-shaded hours'],
-  ['seasonal_transmittance','Shade by month'],
-  ['sunpath_transmittance_on_photo','Sun path — shade, on photo'],
-  ['sunpath_transmittance_on_segmentation','Sun path — shade, on segmentation'],
-  ['sunpath_ghi_on_photo','Sun path — GHI, on photo'],
-  ['sunpath_ghi_on_segmentation','Sun path — GHI, on segmentation'],
-  ['empirical_vs_tcm','Modeled vs 2yr measured'],
-  ['svf_gauge','Sky-view factor']
-];
 
 function canopyPhotoToggleHtml(){
   return `<div class="tcm-photo-toggle">
@@ -2199,74 +2264,83 @@ function canopyPhotoToggleHtml(){
 }
 
 function renderCanopyTcmBlock(sid,rec,valRec,excluded){
-  const tier=rec.validation_tier;
   const photos=photoPaths(rec,true);
   window._canopyPhotoPaths=photos;
   const chartsMap=rec.tcm_charts||{};
-  const othersShare=rec.pixel_composition?.Others;
+  const svf=TCM_SVF[sid];
+  const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
+  window._sunpathPaths=sunpaths;
 
   return `
     ${excluded?`<div class="tcm-banner tcm-banner-excluded">
       <b>⚠ Excluded from the validated set.</b> ${rec.exclusion_reason||'Reason not recorded.'}<br>
-      Included below for transparency only — do not read these numbers with the same trust as a normal station.
+      Shown for transparency only — do not read these numbers with the same trust as a normal station.
     </div>`:''}
 
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-      ${tierBadgeHtml(tier)}
-      <span style="font-size:10px;color:var(--muted)">MAE ${valRec?.MAE_Wm2??'--'} W/m² · R² ${valRec?.R2??'--'} · vs roof reference ${valRec?.roof_reference??'--'}</span>
-    </div>
-
-    <div class="tcm-banner tcm-banner-note">
-      <b>Modeled, not measured.</b> Derived from a single street-view panorama + solar geometry, extrapolated across up to ~2 years assuming the canopy is unchanged — tree growth, pruning, or construction since capture would not show up here. Per-station accuracy varies a lot (see tier above); treat WEAK-tier numbers as indicative at best.
-    </div>
-
-    <div class="tcm-stat-row">
-      <div class="stat-box"><div class="stat-val">${rec.canopy_reduction_pct}%</div><div class="stat-unit">clear-sky GHI</div><div class="stat-lbl">Canopy Reduction</div></div>
-      <div class="stat-box"><div class="stat-val">${rec.shade_rank}</div><div class="stat-unit">shadiest</div><div class="stat-lbl">Network Rank</div></div>
-      <div class="stat-box"><div class="stat-val">${tier}</div><div class="stat-unit">confidence</div><div class="stat-lbl">Validation Tier</div></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
-      ${canopyPhotoToggleHtml()}
-      <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-title">Pixel composition — ${sid}</div>
-      <div class="chart-sub">Semantic segmentation, share of frame</div>
-      <div class="chart-wrap" style="height:170px"><canvas id="tcmDonut"></canvas></div>
-      ${othersShare>0.3?`<div style="font-size:10px;color:var(--muted);margin-top:6px">Large "Others" share here is usually diagnostic (fencing, poles, etc. misread by the segmentation model), not noise — check the segmented photo above.</div>`:''}
-    </div>
-
-    <div class="hm-card">
-      <div class="hm-title">Modeled solar exposure under canopy (GHI) <span style="font-weight:400;color:var(--muted)">(W/m²)</span></div>
-      <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h · clear-sky reference — see note below</div>
-      <div class="hm-body">
-        <div class="hm-canvas-wrap"><canvas id="tcmHmGhi"></canvas></div>
-        <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">W/m²</div><canvas id="tcmHmGhiCb"></canvas></div>
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+        <div class="tcm-photo-rel">
+          ${canopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+        </div>
+        ${captureCaptionHtml(rec)}
+      </div>
+      <div class="tcm-col-stack">
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+            <div class="tcm-legend" id="tcmDonutLegend"></div>
+          </div>
+        </div>
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img">${rec.segmentation?.svf_overlay?`<img src="${TCM_BASE+rec.segmentation.svf_overlay}" alt="${sid} sky-view fisheye"/>`:''}</div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">Sky View Factor (SVF)</div>
+            <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
+            <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="hm-card">
-      <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
-      <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
-      <div class="hm-body">
-        <div class="hm-canvas-wrap"><canvas id="tcmHmTrans"></canvas></div>
-        <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="tcmHmTransCb"></canvas></div>
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Annual sun path — canopy transmittance</div>
+        <div class="tcm-photo-rel">
+          <div class="tcm-photo-toggle">
+            <button class="tcm-photo-btn ${sunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setSunpathMode('photo')">📷 RGB</button>
+            <button class="tcm-photo-btn ${sunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setSunpathMode('seg')">🗺 TCM</button>
+          </div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" src="${TCM_BASE+(sunpaths[sunpathMode]||sunpaths.photo||'')}" alt="${sid} sun path overlay"/></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">How to read this</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
+          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        </div>
       </div>
     </div>
-    <div class="tcm-banner tcm-banner-note">
-      <b>Clear-sky reference — not "predicted actual sunlight."</b> GHI above is pvlib clear-sky solar geometry × segmented canopy transmittance, with no cloud attenuation. Spot-checks against measured data found this runs 12–26% below the real long-term average GHI at most stations, even the best-validated ones. Read it as the relative shade pattern across the day/year, not an absolute sunlight forecast.
-    </div>
 
-    <div class="chart-card">
-      <div class="chart-title">Additional model charts — ${sid}</div>
-      <div class="tcm-img-grid">
-        ${TCM_STATIC_CHARTS.filter(([k])=>chartsMap[k]).map(([k,label])=>`
-          <div class="tcm-img-card">
-            <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px">${label}</div>
-            <img src="${TCM_BASE+chartsMap[k]}" alt="${label}" loading="lazy"/>
-          </div>`).join('')}
+    <div class="tcm-2col">
+      <div class="hm-card" style="margin-bottom:0">
+        <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="tcmHmTrans"></canvas></div>
+          <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="tcmHmTransCb"></canvas></div>
+        </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);margin-top:8px"><b>Reading the chart:</b> each cell shows how much sunlight the canopy lets through at that hour and month — light = open sun, dark = shaded. As a rough guide, full sun in Singapore delivers ~900–1,000 W/m² around midday on a clear day, so a cell at 0.5 would pass roughly half of that; morning and evening sun carries much less (~100–300 W/m²) even unshaded. Values assume clear sky — clouds reduce actual radiation further.</div>
+      </div>
+      <div class="tcm-col-stack">
+        ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${TCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${sid} shade by hour"/></div>`:''}
+        <div class="chart-card" style="margin-bottom:0;flex:1">
+          <div class="chart-title">Shade by month</div>
+          <div class="chart-sub">Mean daytime transmittance (7–19h) · lower = more shaded</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="tcmShadeMonth"></canvas></div>
+        </div>
       </div>
     </div>`;
 }
@@ -2278,15 +2352,22 @@ function renderCanopySviOnlyBlock(sid,rec){
     <div class="tcm-banner tcm-banner-info">
       <b>${sid} is a ${rec.type==='Roof'?'roof':rec.type} reference station</b> — not part of the tree-shade model (TCM only models ground-level stations). Segmentation imagery below is from the SVI showcase, shown for reference only.
     </div>
-    <div class="chart-card">
-      <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
-      ${canopyPhotoToggleHtml()}
-      <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Pixel composition — ${sid}</div>
-      <div class="chart-sub">Semantic segmentation, share of frame</div>
-      <div class="chart-wrap" style="height:170px"><canvas id="tcmDonut"></canvas></div>
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+        <div class="tcm-photo-rel">
+          ${canopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+        </div>
+        ${captureCaptionHtml(rec)}
+      </div>
+      <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+        <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+        <div class="tcm-circle-info">
+          <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+          <div class="tcm-legend" id="tcmDonutLegend"></div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -2295,7 +2376,7 @@ function renderCanopy(cont,sid){
 
   if(!TCM || !SVI || !TCMVALID){
     cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
-      <div class="chart-sub">TCM/SVI data files did not load — check that the TCM/ folder sits next to index.html.</div></div>`;
+      <div class="chart-sub">TCM/SVI data files did not load — S3 unreachable and no local TCM/ fallback found (check the browser console).</div></div>`;
     return;
   }
 
@@ -2557,20 +2638,20 @@ function renderCanopyNetworkOverview(cont){
   const compChart=TCM._network_charts?.svi_composition_all_stations;
 
   const rows=sids.map(sid=>{
-    const rec=TCM[sid], val=TCMVALID[sid]||{};
+    const rec=TCM[sid], svf=TCM_SVF[sid];
     return `<tr class="${rec.excluded?'excluded-row':''}">
       <td><b>${sid}</b></td>
-      <td>${tierBadgeHtml(rec.validation_tier)}</td>
-      <td>${val.MAE_Wm2??'--'}</td>
-      <td>${val.R2??'--'}</td>
+      <td style="font-weight:700;color:${svf!=null?svfColor(svf):'var(--muted)'}">${svf!=null?svf.toFixed(2):'—'}</td>
       <td>${rec.canopy_reduction_pct}%</td>
+      <td>${rec.shade_rank||'—'}</td>
+      <td style="white-space:nowrap">${captureLabel(rec.capture)||'—'}</td>
       <td>${rec.excluded?`⚠ ${rec.exclusion_reason||'excluded'}`:'—'}</td>
     </tr>`;
   }).join('');
 
   cont.innerHTML=`
     <div class="tcm-banner tcm-banner-note">
-      <b>31 of the network's 40 ground stations are shade-modeled (TCM).</b> WS02/06/12/16/19/24/35/37 are roof reference stations (not modeled), WS38 has no valid data (sensor fault + panorama captured at the wrong location). Every number here comes from a single street-view panorama per station + solar geometry — not measurement — and per-station accuracy varies enormously; check tier + MAE/R² below before trusting any one station's figures.
+      <b>31 of the network's 40 ground stations are shade-modeled (TCM).</b> WS02/06/12/16/19/24/35/37 are roof reference stations (not modeled), WS38 has no valid data (sensor fault + panorama captured at the wrong location). Every number here comes from a single street-view panorama per station + solar geometry — not measurement. Imagery: ${TCM._collection?.label||'Apr 2024 / Jan 2025'}, two campaigns ~9 months apart — cross-station comparisons mix two canopy states (per-station date in the table below).
     </div>
 
     <div class="chart-card">
@@ -2587,11 +2668,11 @@ function renderCanopyNetworkOverview(cont){
     </div>
 
     <div class="chart-card">
-      <div class="chart-title">Per-station validation — ${sids.length} modeled stations${excludedSids.length?`, ${excludedSids.length} excluded`:''}</div>
-      <div class="chart-sub">MAE / R² vs. 2 years of measured pyranometer data</div>
+      <div class="chart-title">Per-station summary — ${sids.length} modeled stations${excludedSids.length?`, ${excludedSids.length} excluded`:''}</div>
+      <div class="chart-sub">Sky-view factor &amp; canopy reduction from the shade model</div>
       <div style="overflow-x:auto">
         <table class="tcm-tier-table">
-          <thead><tr><th>Station</th><th>Tier</th><th>MAE (W/m²)</th><th>R²</th><th>Canopy reduction</th><th>Excluded?</th></tr></thead>
+          <thead><tr><th>Station</th><th>SVF</th><th>Canopy reduction</th><th>Shade rank</th><th>Imagery</th><th>Excluded?</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -2601,7 +2682,7 @@ function renderCanopyNetworkOverview(cont){
 // ── Heatmap: X=hour, Y=month or day, colorbar on right ────────────────────
 const hmTooltip = document.getElementById('hmTooltip');
 
-function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cbTicks, startHour=0, endHour=23){
+function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cbTicks, startHour=0, endHour=23, aspect=0.8){
   const canvas=document.getElementById(canvasId);
   if(!canvas||!data2d)return;
   const ctx=canvas.getContext('2d');
@@ -2613,8 +2694,8 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
   const PL=38, PB=36, PT=6, PR=6;  // PB=36 gives more gap for x-axis label
   const W=canvas.parentElement.offsetWidth-4;
   const plotW=W-PL-PR;
-  // 4:5 ratio: plotH = plotW * 4/5
-  const plotH=Math.round(plotW*4/5);
+  // default 4:5 ratio; callers can pass a smaller aspect for compact heatmaps
+  const plotH=Math.round(plotW*aspect);
   const H=plotH+PT+PB;
   canvas.width=W; canvas.height=H;
   ctx.clearRect(0,0,W,H);
@@ -2660,8 +2741,9 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
 
   // X-axis: hour labels as "HH:00" every 2h — bigger text 2x
   ctx.textAlign='center'; ctx.font='11px Segoe UI'; ctx.fillStyle='#374151';
-  // X tick numbers — every 2 hours, offset by startHour
-  for(let c=0;c<nCols;c+=2){
+  // X tick numbers — every hour when cells are wide enough, else every 2 hours
+  const xStep=(plotW/nCols)>=44?1:2;
+  for(let c=0;c<nCols;c+=xStep){
     const hr = startHour + c;
     ctx.fillText(`${String(hr).padStart(2,'0')}:00`, PL+c*cellW+cellW/2, PT+plotH+14);
   }
