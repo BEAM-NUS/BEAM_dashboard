@@ -364,6 +364,7 @@ const TCM_LOCAL_BASE='TCM/';                // gitignored — only present in lo
 let TCM_BASE=TCM_S3_BASE;                   // S3 primary; loadData falls back to local if S3 unreachable
 const TCM_DATA_CACHE={};                    // lazy per-station tcm_data/{id}_hourly_month.json cache
 let GTCM=null;                              // Greenery TCM+SVI manifest (merged, keyed by GSxx) — no validation (no pyranometer)
+const GTCM_DATA_CACHE={};                   // lazy per-station tcm_data/{id}_hourly_month.json cache (greenery)
 const GTCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com/svi_tcm/greenery-2026-07/';
 const GTCM_LOCAL_BASE='GREENERY_TCM/';      // gitignored — only present in local working copies
 let GTCM_BASE=GTCM_S3_BASE;                 // S3 primary; loadData falls back to local if S3 unreachable
@@ -2480,6 +2481,45 @@ function grCanopyPhotoToggleHtml(){
   </div>`;
 }
 
+async function getGrTcmHourlyData(gsId){
+  if(GTCM_DATA_CACHE[gsId]) return GTCM_DATA_CACHE[gsId];
+  try{
+    const d=await fetch(`${GTCM_BASE}tcm_data/${gsId}_hourly_month.json`).then(r=>r.json());
+    GTCM_DATA_CACHE[gsId]=d;
+    return d;
+  }catch(e){ console.warn('Failed to load greenery tcm_data for',gsId,e); return null; }
+}
+
+// Unlike the WS network (which averages ~28 real year-month keys across replicate
+// years client-side), the greenery export is already collapsed server-side to one
+// representative 12-month cycle (m15_export_greenery_hourly_json.py) — so this just
+// reads the 12 months straight through, no further averaging needed.
+async function loadGreeneryCanopyHeatmaps(gid){
+  const gsId=gidToGsId(gid);
+  const d=await getGrTcmHourlyData(gsId);
+  if(!d || gid!==activeGreenery || activeVar!=='Canopy' || !document.getElementById('grTcmHmTrans'))return;
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const grid=d.months.map(m=>d.transmittance_tcm[m]);
+  const monthly=d.months.map(m=>{
+    const day=(d.transmittance_tcm[m]||[]).slice(7,20).filter(v=>v!=null);
+    return day.length?+(day.reduce((a,b)=>a+b,0)/day.length).toFixed(3):null;
+  });
+  requestAnimationFrame(()=>{
+    drawHeatmapNew('grTcmHmTrans', grid, TCM_CMAPS.transmittance, MON, {min:0,max:1}, 'grTcmHmTransCb', '', [0,0.25,0.5,0.75,1], 7, 19, 0.45);
+    const bar=document.getElementById('grTcmShadeMonth');
+    if(bar){
+      charts.grTcmShadeMonth=new Chart(bar,{
+        type:'bar',
+        data:{labels:Array.from({length:12},(_,i)=>String(i+1)),
+          datasets:[{data:monthly,backgroundColor:'#43a047',borderRadius:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          scales:{y:{min:0,max:1,ticks:{font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:9}}}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Month '+c[0].label,label:c=>`Mean transmittance: ${c.parsed.y}`}}}}
+      });
+    }
+  });
+}
+
 function renderGreeneryCanopy(cont,gid){
   Object.values(charts).forEach(c=>c.destroy?.());charts={};
   const gsId=gidToGsId(gid);
@@ -2532,6 +2572,7 @@ function renderGreeneryCanopy(cont,gid){
             <div class="chart-title">Sky View Factor (SVF)</div>
             <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
             <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px">Canopy reduction: <b>${rec.canopy_reduction_pct!=null?rec.canopy_reduction_pct.toFixed(1)+'%':'—'}</b> · Shade rank: <b>${rec.shade_rank||'—'}</b></div>
           </div>
         </div>
       </div>
@@ -2549,23 +2590,37 @@ function renderGreeneryCanopy(cont,gid){
         </div>
       </div>
       <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">Shade ranking</div>
-        <div class="stats-row" style="margin-bottom:10px">
-          <div class="stat-box"><div class="stat-val">${rec.canopy_reduction_pct!=null?rec.canopy_reduction_pct.toFixed(1):'—'}</div><div class="stat-unit">%</div><div class="stat-lbl">Canopy Reduction</div></div>
-          <div class="stat-box"><div class="stat-val" style="font-size:16px">${rec.shade_rank||'—'}</div><div class="stat-lbl">Shade Rank (24 sites)</div></div>
+        <div class="chart-title">How to read this</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
+          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
         </div>
-        <div style="font-size:12px;line-height:1.6;color:var(--muted)">Charts below are static images, not an interactive grid — greenery sites don't have the per-station hourly export the WS network does.</div>
       </div>
     </div>
 
     <div class="tcm-2col">
-      ${chartsMap.heatmap_transmittance?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Canopy transmittance — hour × month</div><img src="${GTCM_BASE+chartsMap.heatmap_transmittance}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} transmittance heatmap"/></div>`:''}
-      ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${GTCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} shade by hour"/></div>`:''}
+      <div class="hm-card" style="margin-bottom:0">
+        <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="grTcmHmTrans"></canvas></div>
+          <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="grTcmHmTransCb"></canvas></div>
+        </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);margin-top:8px"><b>Reading the chart:</b> each cell shows how much sunlight the canopy lets through at that hour and month — light = open sun, dark = shaded. As a rough guide, full sun in Singapore delivers ~900–1,000 W/m² around midday on a clear day, so a cell at 0.5 would pass roughly half of that; morning and evening sun carries much less (~100–300 W/m²) even unshaded. Values assume clear sky — clouds reduce actual radiation further.</div>
+      </div>
+      <div class="tcm-col-stack">
+        ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${GTCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} shade by hour"/></div>`:''}
+        <div class="chart-card" style="margin-bottom:0;flex:1">
+          <div class="chart-title">Shade by month</div>
+          <div class="chart-sub">Mean daytime transmittance (7–19h) · lower = more shaded</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="grTcmShadeMonth"></canvas></div>
+        </div>
+      </div>
     </div>
     ${chartsMap.seasonal_transmittance?`<div class="chart-card"><div class="chart-title">Seasonal transmittance</div><img src="${GTCM_BASE+chartsMap.seasonal_transmittance}" style="width:100%;max-width:640px;border-radius:6px" loading="lazy" alt="${gid} seasonal transmittance"/></div>`:''}
   `;
 
   renderCanopyDonut(gsId, rec.pixel_composition);
+  loadGreeneryCanopyHeatmaps(gid);
 }
 
 // ── Boxplot tooltip helper ────────────────────────────────────────────────
