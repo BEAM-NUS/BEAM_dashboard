@@ -2546,10 +2546,6 @@ function renderGreeneryCanopy(cont,gid){
   const svf=rec.svf_mean;
 
   cont.innerHTML=`
-    <div class="tcm-banner tcm-banner-info">
-      <b>Modeled shade, not validated.</b> ${rec.validation_note||'No pyranometer at this site — modeled shade only, not cross-checked against measured data.'}
-    </div>
-
     <div class="tcm-2col">
       <div class="chart-card" style="margin-bottom:0">
         <div class="chart-title">Street-view panorama &amp; segmentation — ${gid}</div>
@@ -2572,7 +2568,6 @@ function renderGreeneryCanopy(cont,gid){
             <div class="chart-title">Sky View Factor (SVF)</div>
             <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
             <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px">Canopy reduction: <b>${rec.canopy_reduction_pct!=null?rec.canopy_reduction_pct.toFixed(1)+'%':'—'}</b> · Shade rank: <b>${rec.shade_rank||'—'}</b></div>
           </div>
         </div>
       </div>
@@ -2593,6 +2588,8 @@ function renderGreeneryCanopy(cont,gid){
         <div class="chart-title">How to read this</div>
         <div style="font-size:13px;line-height:1.7;color:var(--muted)">
           Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+          <br><br>
+          This site has no pyranometer, so its shade estimate hasn't been checked against measured solar radiation on the ground here. The same modeling approach has been validated at the WS network's 31 ground stations, which do carry pyranometers — canopy-adjusted transmittance tracked measured solar radiation well at most of those stations (agreement varied by site), supporting its use as a reasonable proxy for ground-level solar radiation at greenery sites like this one.
         </div>
       </div>
     </div>
