@@ -363,6 +363,14 @@ const TCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com
 const TCM_LOCAL_BASE='TCM/';                // gitignored — only present in local working copies
 let TCM_BASE=TCM_S3_BASE;                   // S3 primary; loadData falls back to local if S3 unreachable
 const TCM_DATA_CACHE={};                    // lazy per-station tcm_data/{id}_hourly_month.json cache
+let GTCM=null;                              // Greenery TCM+SVI manifest (merged, keyed by GSxx) — no validation (no pyranometer)
+const GTCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com/svi_tcm/greenery-2026-07/';
+const GTCM_LOCAL_BASE='GREENERY_TCM/';      // gitignored — only present in local working copies
+let GTCM_BASE=GTCM_S3_BASE;                 // S3 primary; loadData falls back to local if S3 unreachable
+// G-network marker IDs (G01-G12,G14-G25) -> GS-network TCM IDs (GS01-GS25, no GS05).
+// Verified 1:1 by lat/lon match for all overlapping IDs; G05 has no TCM counterpart
+// (GS05 was never captured) and GS13 is orphaned (no G13 marker exists on the dashboard).
+const gidToGsId=gid=>'GS'+gid.slice(1);
 let activeVar='AirTemp', activeStation=null, activeGreenery=null, dnMode='a';
 let charts={}, mapInstance=null, markers={}, grMarkers={};
 let homeVisible=false, overallSubView='heatmap', compView='bar';
@@ -504,6 +512,19 @@ async function loadData(){
     }catch(e){
       console.warn('TCM/SVI data unavailable — Tree Canopy tab will show an empty state:', e);
       TCM=null; SVI=null; TCMVALID=null;
+    }
+    try{
+      const loadGtcmSet=base=>fetch(base+'manifest.json').then(r=>{if(!r.ok)throw new Error(`${base}manifest.json: ${r.status}`);return r.json();});
+      try{
+        GTCM=await loadGtcmSet(GTCM_S3_BASE);
+      }catch(e){
+        console.warn('S3 Greenery TCM/SVI source unreachable — falling back to local GREENERY_TCM/ folder:', e);
+        GTCM_BASE=GTCM_LOCAL_BASE;
+        GTCM=await loadGtcmSet(GTCM_LOCAL_BASE);
+      }
+    }catch(e){
+      console.warn('Greenery TCM/SVI data unavailable — Greenery Canopy tab will show an empty state:', e);
+      GTCM=null;
     }
     document.getElementById('loadSub').textContent='Rendering (5/5)…';
     document.getElementById('loadingOverlay').style.display='none';
@@ -1079,16 +1100,21 @@ function showCharts(){
 }
 
 // ── Greenery network var-btn gating ─────────────────────────────────────────
-// Greenery stations only have Air Temp (2025) — grey out the tabs that don't apply
-// and force the Air Temp tab active while a greenery station is selected.
+// Greenery stations only have Air Temp (2025) plus the Canopy shade tab (TCM/SVI,
+// no pyranometer so no validation tier) — grey out everything else and default
+// to Air Temp while a greenery station is selected.
 function setVarButtonsForGreenery(isGreenery){
   document.querySelectorAll('.var-btn').forEach(b=>{
-    b.classList.toggle('disabled', isGreenery && b.dataset.var!=='AirTemp');
+    const exempt=b.dataset.var==='AirTemp'||b.dataset.var==='Canopy';
+    b.classList.toggle('disabled', isGreenery && !exempt);
   });
   if(isGreenery){
+    // Keep Canopy active if that's already what the user is looking at; otherwise
+    // (or on first entry from a non-exempt tab) default to Air Temp.
+    const keep=activeVar==='AirTemp'||activeVar==='Canopy';
     document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelector('.var-btn[data-var="AirTemp"]')?.classList.add('active');
-    activeVar='AirTemp';
+    if(!keep) activeVar='AirTemp';
+    document.querySelector(`.var-btn[data-var="${activeVar}"]`)?.classList.add('active');
   }
 }
 
@@ -1438,10 +1464,23 @@ function renderAll(){
   else              renderCharts(cont,ms);
 }
 
-// ── Greenery network dispatcher (24 stations, 2025 Air Temp only) ──────────
+// ── Greenery network dispatcher (24 stations, 2025 Air Temp; + Canopy shade tab) ─
 function renderGreenery(){
   if(!activeGreenery||homeVisible)return;
   const gid=activeGreenery, meta=GR.stations[gid];
+
+  if(activeVar==='Canopy'){
+    document.getElementById('rightPanel').innerHTML=`
+      <div class="sel-bar" style="background:#1b5e20">
+        <div class="sel-id">${gid}</div>
+        <div><div class="sel-name">Greenery Station — ${meta.name}</div>
+        <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)} · Tree Canopy Shade Model</div></div>
+      </div>
+      <div id="mainContent"></div>`;
+    renderGreeneryCanopy(document.getElementById('mainContent'), gid);
+    return;
+  }
+
   const vi=VARS.AirTemp, ms=+document.getElementById('monthSel').value;
 
   let allVals=[];
@@ -2407,6 +2446,126 @@ function renderCanopy(cont,sid){
 
   renderCanopyDonut(sid, isTcmStation?tcmRec.pixel_composition:sviRec.pixel_composition);
   if(isTcmStation) loadCanopyHeatmaps(sid);
+}
+
+// ── GREENERY CANOPY TAB ─────────────────────────────────────────────────────
+// Same idea as the WS network's Canopy tab, adapted for the greenery (GSxx)
+// manifest: no validation tier (no pyranometer at these sites), svf_mean is
+// shipped directly instead of a hardcoded lookup, and there's no per-station
+// hourly JSON export — the transmittance heatmap is the static PNG, not an
+// interactive canvas.
+function grPhotoPaths(rec){
+  return {real:rec.svi_photo, segmented:rec.segmentation?.segmented_full, blended:rec.segmentation?.blended};
+}
+function setGrCanopyPhoto(mode){
+  canopyPhotoMode=mode;
+  const img=document.getElementById('grTcmPhotoImg');
+  const paths=window._grCanopyPhotoPaths;
+  if(img && paths && paths[mode]) img.src=GTCM_BASE+paths[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+let grSunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
+function setGrSunpathMode(mode){
+  grSunpathMode=mode;
+  const img=document.getElementById('grTcmSunpathImg');
+  const p=window._grSunpathPaths;
+  if(img && p && p[mode]) img.src=GTCM_BASE+p[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
+}
+function grCanopyPhotoToggleHtml(){
+  return `<div class="tcm-photo-toggle">
+    <button class="tcm-photo-btn ${canopyPhotoMode==='real'?'active':''}" data-mode="real" onclick="setGrCanopyPhoto('real')">📷 Real</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='segmented'?'active':''}" data-mode="segmented" onclick="setGrCanopyPhoto('segmented')">🗺 Segmented</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='blended'?'active':''}" data-mode="blended" onclick="setGrCanopyPhoto('blended')">🩻 Blended</button>
+  </div>`;
+}
+
+function renderGreeneryCanopy(cont,gid){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const gsId=gidToGsId(gid);
+
+  if(!GTCM){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">Greenery TCM/SVI data did not load — S3 unreachable and no local GREENERY_TCM/ fallback found (check the browser console).</div></div>`;
+    return;
+  }
+
+  const rec=GTCM[gsId];
+  if(!rec){
+    cont.innerHTML=`<div class="tcm-banner tcm-banner-info">
+      <b>No canopy / segmentation data for ${gid}.</b><br>No street-view panorama was captured at this greenery site — it was skipped during the TCM/SVI shoot.
+    </div>`;
+    return;
+  }
+
+  const photos=grPhotoPaths(rec);
+  window._grCanopyPhotoPaths=photos;
+  const chartsMap=rec.tcm_charts||{};
+  const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
+  window._grSunpathPaths=sunpaths;
+  const svf=rec.svf_mean;
+
+  cont.innerHTML=`
+    <div class="tcm-banner tcm-banner-info">
+      <b>Modeled shade, not validated.</b> ${rec.validation_note||'No pyranometer at this site — modeled shade only, not cross-checked against measured data.'}
+    </div>
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${gid}</div>
+        <div class="tcm-photo-rel">
+          ${grCanopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="grTcmPhotoImg" src="${GTCM_BASE+(photos[canopyPhotoMode]||photos.real||'')}" alt="${gid} panorama"/></div>
+        </div>
+      </div>
+      <div class="tcm-col-stack">
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+            <div class="tcm-legend" id="tcmDonutLegend"></div>
+          </div>
+        </div>
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img">${chartsMap.svf_gauge?`<img src="${GTCM_BASE+chartsMap.svf_gauge}" alt="${gid} sky-view factor gauge"/>`:''}</div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">Sky View Factor (SVF)</div>
+            <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
+            <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Annual sun path — canopy transmittance</div>
+        <div class="tcm-photo-rel">
+          <div class="tcm-photo-toggle">
+            <button class="tcm-photo-btn ${grSunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setGrSunpathMode('photo')">📷 RGB</button>
+            <button class="tcm-photo-btn ${grSunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setGrSunpathMode('seg')">🗺 TCM</button>
+          </div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" src="${GTCM_BASE+(sunpaths[grSunpathMode]||sunpaths.photo||'')}" alt="${gid} sun path overlay"/></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Shade ranking</div>
+        <div class="stats-row" style="margin-bottom:10px">
+          <div class="stat-box"><div class="stat-val">${rec.canopy_reduction_pct!=null?rec.canopy_reduction_pct.toFixed(1):'—'}</div><div class="stat-unit">%</div><div class="stat-lbl">Canopy Reduction</div></div>
+          <div class="stat-box"><div class="stat-val" style="font-size:16px">${rec.shade_rank||'—'}</div><div class="stat-lbl">Shade Rank (24 sites)</div></div>
+        </div>
+        <div style="font-size:12px;line-height:1.6;color:var(--muted)">Charts below are static images, not an interactive grid — greenery sites don't have the per-station hourly export the WS network does.</div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      ${chartsMap.heatmap_transmittance?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Canopy transmittance — hour × month</div><img src="${GTCM_BASE+chartsMap.heatmap_transmittance}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} transmittance heatmap"/></div>`:''}
+      ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${GTCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} shade by hour"/></div>`:''}
+    </div>
+    ${chartsMap.seasonal_transmittance?`<div class="chart-card"><div class="chart-title">Seasonal transmittance</div><img src="${GTCM_BASE+chartsMap.seasonal_transmittance}" style="width:100%;max-width:640px;border-radius:6px" loading="lazy" alt="${gid} seasonal transmittance"/></div>`:''}
+  `;
+
+  renderCanopyDonut(gsId, rec.pixel_composition);
 }
 
 // ── Boxplot tooltip helper ────────────────────────────────────────────────
