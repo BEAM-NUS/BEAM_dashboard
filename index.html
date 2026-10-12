@@ -1122,8 +1122,8 @@ function setVarButtonsForGreenery(isGreenery){
 // ── Map ────────────────────────────────────────────────────────────────────
 function initMap(){
   mapInstance=L.map('map').setView([1.2966,103.7764],15);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:20
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_4hpq_1_0a4e81905447dea960020e42',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution/">CARTO</a>',subdomains:'abcd',maxZoom:20
   }).addTo(mapInstance);
 
   refreshAllMarkers=function(){

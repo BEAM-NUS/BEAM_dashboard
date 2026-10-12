@@ -1,0 +1,3354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<meta name="theme-color" content="#a1bb22">
+<script>
+/* Mobile-lite mode: sets html.m-port (phone portrait) or html.m-land (phone landscape).
+   Override for desktop testing: mobile.html?m=port  or  ?m=land */
+(function(){
+  var f=new URLSearchParams(location.search).get('m');
+  var mq=function(q){return window.matchMedia(q).matches;};
+  function apply(){
+    var port,land;
+    if(f==='port'){port=true;land=false;}
+    else if(f==='land'){port=false;land=true;}
+    else{
+      land=mq('(orientation:landscape) and (max-height:500px)');
+      port=!land&&mq('(orientation:portrait) and (max-width:600px)');
+    }
+    var de=document.documentElement;
+    de.classList.toggle('m-port',port);
+    de.classList.toggle('m-land',land);
+    de.classList.toggle('m-lite',port||land);
+    window.__mLite=port||land;
+  }
+  apply();
+  window.addEventListener('resize',apply);
+  window.addEventListener('orientationchange',apply);
+})();
+</script>
+<title>[MOBILE PROTOTYPE] BEAM Weather Station Dashboard — NUS Campus 2024–2026</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4/build/index.umd.min.js"></script>
+<style>
+:root{
+  --blue:#1a73e8;--navy:#1b2a4a;--teal:#00897b;--amber:#f59e0b;
+  --red:#c62828;--bg:#f0f2f7;--card:#fff;--border:#dde3ef;
+  --text:#1e293b;--muted:#64748b;--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+header{background:#a1bb22;color:#fff;padding:8px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.beam-logo{display:flex;align-items:center;height:44px;flex-shrink:0;}
+.beam-logo svg{height:44px;width:auto;}
+.hdiv{width:1px;height:36px;background:rgba(255,255,255,0.35);}
+.htitle{font-size:14px;font-weight:700;color:#fff;}
+.hsub{font-size:11px;color:rgba(255,255,255,0.8);}
+.beam-expand{font-size:10px;color:rgba(255,255,255,0.75);letter-spacing:.3px;margin-top:2px;}
+
+.top-bar{background:#fff;border-bottom:1px solid var(--border);padding:6px 20px;display:flex;align-items:center;gap:7px;flex-shrink:0;}
+.home-btn{padding:5px 13px;border-radius:20px;border:2px solid #334155;background:var(--navy);cursor:pointer;font-size:12px;font-weight:700;color:#7dd3fc;}
+.home-btn:hover{background:#243554;}
+.sep{width:1px;height:22px;background:var(--border);}
+.var-btn{padding:5px 13px;border-radius:20px;border:2px solid transparent;background:var(--bg);cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all .15s;}
+.var-btn:hover{border-color:var(--blue);color:var(--blue);}
+.var-btn.active{color:#fff;}
+.var-btn.disabled{opacity:.3;pointer-events:none;}
+.var-btn[data-var="AirTemp"].active{background:#c62828;border-color:#c62828;}
+.var-btn[data-var="RelHum"].active{background:#00695c;border-color:#00695c;}
+.var-btn[data-var="Wind"].active{background:#1565c0;border-color:#1565c0;}
+.var-btn[data-var="GlobalRad"].active{background:#e65100;border-color:#e65100;}
+.var-btn[data-var="Overall"].active{background:#4a1d96;border-color:#4a1d96;}
+.var-btn[data-var="Canopy"].active{background:#2e7d32;border-color:#2e7d32;}
+.month-select{margin-left:auto;padding:5px 10px;border-radius:8px;border:1px solid var(--border);font-size:12px;background:#fff;cursor:pointer;}
+
+.layout{display:grid;grid-template-columns:35% 1fr;flex:1;min-height:0;}
+.map-panel{display:flex;flex-direction:column;border-right:1px solid var(--border);}
+.panel-hdr{padding:8px 12px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:#f8fafc;flex-shrink:0;}
+#map{flex:1;min-height:0;}
+
+#homeView{flex:1;overflow:auto;background:#fff;display:none;flex-direction:column;}
+.home-inner{padding:16px;text-align:center;}
+.home-inner img{max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.12);}
+
+.right-panel{overflow-y:auto;padding:14px;background:var(--bg);}
+.no-sel{display:flex;flex-direction:column;align-items:center;justify-content:center;height:80%;color:var(--muted);text-align:center;}
+
+.sel-bar{background:var(--navy);color:#fff;border-radius:var(--radius);padding:10px 14px;display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.sel-id{font-size:22px;font-weight:800;color:#7dd3fc;}
+.sel-type{font-size:10px;color:#94a3b8;}
+.sel-name{font-size:13px;font-weight:600;}
+
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.stat-box{background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;}
+.stat-val{font-size:18px;font-weight:700;color:var(--navy);}
+.stat-unit{font-size:10px;color:var(--muted);}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+
+.toggle-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.toggle-row label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;}
+.dn-btn{padding:4px 11px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);transition:all .15s;}
+.dn-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.dn-active-day{background:#fffbeb!important;color:#d97706!important;border-color:#d97706!important;}
+.dn-active-night{background:#1b2a4a!important;color:#e2e8f0!important;border-color:#1b2a4a!important;}
+.dn-active-hm{background:#4a1d96!important;color:#fff!important;border-color:#4a1d96!important;}
+.comp-view-btn{padding:4px 11px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:10px;font-weight:600;color:var(--muted);transition:all .15s;margin-left:4px;}
+.comp-view-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+.chart-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;}
+.chart-title{font-size:12px;font-weight:700;margin-bottom:2px;}
+.chart-sub{font-size:10px;color:var(--muted);margin-bottom:10px;}
+.chart-wrap{position:relative;}
+
+/* Overall sub-tabs */
+.sub-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.sub-tab{padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);transition:all .15s;}
+.sub-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+/* Heatmap card: canvas + colorbar side by side */
+.hm-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;}
+.hm-title{font-size:12px;font-weight:700;margin-bottom:6px;}
+.hm-body{display:flex;gap:6px;align-items:stretch;}
+.hm-canvas-wrap{flex:1;min-width:0;}
+.hm-colorbar{flex-shrink:0;width:60px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;}
+
+/* Wind rose compact */
+.wr-compact{display:flex;gap:10px;align-items:flex-start;justify-content:center;}
+.wr-col{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.wr-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;text-align:center;}
+.wr-legend-v{font-size:10px;padding:8px;background:#fff;border:1px solid var(--border);border-radius:8px;}
+.wr-legend-v .wr-leg-item{display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.wr-leg-swatch{width:12px;height:9px;border-radius:2px;flex-shrink:0;}
+
+#loadingOverlay{position:fixed;inset:0;background:rgba(27,42,74,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff;}
+.spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.2);border-top-color:#7dd3fc;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:14px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-msg{font-size:14px;font-weight:600;color:#7dd3fc;}
+.load-sub{font-size:11px;color:#94a3b8;margin-top:6px;}
+
+/* Compare mode */
+.compare-btn{padding:5px 13px;border-radius:20px;border:2px solid #2e7d32;background:#fff;cursor:pointer;font-size:12px;font-weight:700;color:#2e7d32;transition:all .15s;}
+.compare-btn.active{background:#2e7d32;color:#fff;}
+.compare-btn:hover{background:#e8f5e9;}
+/* Year toggle */
+.yr-btn{padding:5px 11px;border-radius:20px;border:2px solid #1b2a4a;background:#fff;cursor:pointer;font-size:12px;font-weight:700;color:#1b2a4a;transition:all .15s;}
+.yr-btn.active{background:#1b2a4a;color:#fff;}
+.yr-btn:hover{background:#e8eefb;}
+.yr-btn.active:hover{background:#1b2a4a;}
+.yr-btn.loading{opacity:.5;pointer-events:none;}
+.cmp-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:14px;color:#fff;font-size:11px;font-weight:700;}
+.cmp-chip button{background:none;border:none;cursor:pointer;color:rgba(255,255,255,.8);font-size:13px;line-height:1;padding:0;}
+.cmp-chip button:hover{color:#fff;}
+.cmp-panel-hdr{background:var(--navy);color:#fff;border-radius:var(--radius);padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.cmp-legend-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+.cmp-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;}
+.cmp-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+
+.map-legend{background:rgba(255,255,255,.95);padding:8px 10px;border-radius:8px;font-size:10px;box-shadow:0 1px 4px rgba(0,0,0,.2);line-height:2;}
+.hotspot-label{background:transparent;border:none;box-shadow:none;font-size:11px;font-weight:700;color:#c62828;}
+.leaflet-control-layers{font-size:11px;border-radius:8px!important;box-shadow:0 1px 6px rgba(0,0,0,.2)!important;width:185px;box-sizing:border-box;}
+.leaflet-control-layers-expanded{padding:8px 10px!important;}
+.leaflet-control-layers label{display:flex;align-items:center;gap:4px;margin:2px 0;}
+/* Wind CFD layer */
+.wind-overlay-img{image-rendering:pixelated;}
+.wind-tip{position:absolute;z-index:1200;pointer-events:none;display:none;background:rgba(255,255,255,.97);border-radius:6px;padding:5px 9px;font-size:12px;line-height:1.5;box-shadow:0 1px 6px rgba(0,0,0,.3);white-space:nowrap;}
+.wind-tip-arrow{display:inline-block;font-weight:700;color:#1a73e8;font-size:13px;}
+.layout.wind-full{grid-template-columns:100% 0;}
+.layout.wind-full .right-panel{display:none;}
+body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
+.leg-item{display:flex;align-items:center;gap:5px;}
+.leg-circle{width:14px;height:14px;border-radius:50%;border:2px solid #fff;flex-shrink:0;}
+.leg-rect{width:16px;height:12px;border-radius:3px;border:2px solid #fff;flex-shrink:0;}
+.leg-rect3{width:16px;height:12px;border-radius:3px;border:3px solid #fff;outline:1.5px solid rgba(0,0,0,.3);flex-shrink:0;}
+.leg-tri{position:relative;width:16px;height:14px;flex-shrink:0;}
+.leg-tri::before{content:'';position:absolute;top:0;left:0;width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:14px solid #fff;}
+.leg-tri::after{content:'';position:absolute;top:2px;left:2px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:10px solid #1b5e20;}
+
+/* Tree Canopy / TCM-SVI tab */
+.tier-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:14px;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;}
+.tier-STRONG{background:#e8f5e9;color:#1b5e20;border:1.5px solid #2e7d32;}
+.tier-MODERATE{background:#fff8e1;color:#8d6300;border:1.5px solid #f59e0b;}
+.tier-WEAK{background:#fdecea;color:#a12622;border:1.5px solid #c62828;}
+.tcm-banner{border-radius:8px;padding:8px 12px;font-size:11px;line-height:1.5;margin-bottom:10px;}
+.tcm-banner-excluded{background:#fdecea;border:1.5px solid #c62828;color:#7a1a17;}
+.tcm-capture{font-size:10px;color:var(--muted);margin-top:6px;}
+.tcm-banner-info{background:#fff8e1;border:1px solid #f0c36d;color:#6b4c00;}
+.tcm-banner-note{background:#f0f2f7;border:1px solid var(--border);color:var(--muted);}
+.tcm-photo-toggle{display:flex;gap:6px;margin-bottom:8px;}
+.tcm-photo-btn{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);}
+.tcm-photo-btn.active{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+.tcm-photo-wrap{width:100%;border-radius:8px;overflow:hidden;background:#0b1220;display:flex;align-items:center;justify-content:center;min-height:120px;}
+.tcm-photo-wrap img{width:100%;display:block;}
+.tcm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.tcm-img-card img{width:100%;border-radius:6px;display:block;border:1px solid var(--border);}
+.tcm-img-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tcm-sub-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.tcm-tier-table{width:100%;border-collapse:collapse;font-size:11px;}
+.tcm-tier-table th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:4px 6px;border-bottom:2px solid var(--border);}
+.tcm-tier-table td{padding:4px 6px;border-bottom:1px solid #eef1f7;}
+.tcm-tier-table tr.excluded-row{background:#fdecea;}
+.tcm-2col{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:10px;margin-bottom:10px;align-items:stretch;}
+.tcm-col-stack{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.tcm-photo-rel{position:relative;}
+.tcm-photo-rel .tcm-photo-toggle{position:absolute;top:8px;left:8px;z-index:5;margin:0;background:rgba(255,255,255,.88);padding:4px;border-radius:16px;}
+.tcm-circle-card{flex:1;display:flex;align-items:center;gap:14px;}
+.tcm-circle-img{flex:0 0 45%;max-width:230px;}
+.tcm-donut-wrap{position:relative;width:100%;aspect-ratio:1/1;}
+.tcm-circle-img img{width:100%;border-radius:50%;border:1px solid var(--border);display:block;}
+.tcm-circle-info{flex:1;min-width:0;}
+.tcm-legend{display:flex;flex-direction:column;gap:3px;font-size:11.5px;margin-top:6px;}
+.tcm-legend .lg-row{display:flex;align-items:center;gap:7px;}
+.tcm-legend .lg-sw{width:18px;height:12px;border-radius:2px;flex-shrink:0;}
+.tcm-svf-num{font-size:36px;font-weight:800;line-height:1.1;}
+.tcm-svf-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+@media(max-width:980px){.tcm-2col{grid-template-columns:1fr;}}
+
+/* ═══════════ MOBILE LITE (prototype) ═══════════
+   html.m-lite = phone; html.m-port = portrait (stacked); html.m-land = landscape (side by side) */
+html.m-lite{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+html.m-lite body{height:100vh;height:100dvh;}
+html.m-lite button,html.m-lite select{touch-action:manipulation;}
+
+/* header: one compact row */
+html.m-lite header{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left));gap:10px;}
+html.m-lite .beam-logo,html.m-lite .beam-logo svg{height:32px;}
+html.m-lite .beam-logo img{height:32px!important;}
+html.m-lite .hdiv,html.m-lite .beam-expand,html.m-lite .hsub{display:none;}
+html.m-lite .htitle{font-size:13px;line-height:1.2;min-width:0;}
+html.m-lite header button{margin-left:auto!important;white-space:nowrap;min-height:36px;}
+
+/* control bar: one swipeable row, 16px select (stops iOS focus-zoom) */
+html.m-lite .top-bar{padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left));gap:8px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+html.m-lite .top-bar::-webkit-scrollbar{display:none;}
+html.m-lite .top-bar>*{flex:0 0 auto;}
+html.m-lite .top-bar button,html.m-lite .top-bar select{min-height:44px;font-size:13px;padding:0 14px;}
+html.m-lite .top-bar select{font-size:16px;margin-left:0;}
+/* phone scope: Temp | Humidity | Wind | Solar. Hidden: labels, separators, Compare, Home, Canopy, Overall. */
+html.m-lite .top-bar .sep,html.m-lite .top-bar>span,html.m-lite #compareBtn,html.m-lite .home-btn,html.m-lite .var-btn[data-var="Canopy"],html.m-lite .var-btn[data-var="Overall"]{display:none;}
+
+/* grid children must be allowed to shrink */
+html.m-lite .map-panel,html.m-lite .right-panel,html.m-lite #homeView{min-height:0;min-width:0;}
+html.m-lite .panel-hdr{padding:5px 12px;}
+html.m-lite .right-panel{padding:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+html.m-lite #homeView img{max-height:none!important;width:100%!important;height:auto;}
+
+/* PORTRAIT: map on top, detail below */
+html.m-port .layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,44%) minmax(0,1fr);}
+html.m-port .map-panel{border-right:0;border-bottom:1px solid var(--border);}
+
+/* LANDSCAPE: map left, detail right; save every vertical pixel */
+html.m-land .layout{grid-template-columns:minmax(0,46%) minmax(0,1fr);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+html.m-land header{padding-top:3px;padding-bottom:3px;}
+html.m-land .beam-logo,html.m-land .beam-logo svg,html.m-land .beam-logo img{height:26px!important;}
+html.m-land .top-bar{padding-top:3px;padding-bottom:3px;}
+html.m-land .top-bar button,html.m-land .top-bar select{min-height:38px;}
+html.m-lite .panel-hdr{display:none;}
+
+/* map stays clean: no zoom buttons (pinch works); Layers + Legend live in a strip UNDER the map */
+html.m-lite .leaflet-control-zoom{display:none;}
+.m-mapbar{display:none;}
+html.m-lite .m-mapbar{display:flex;gap:8px;flex:0 0 auto;position:relative;padding:6px 10px;background:#fff;border-top:1px solid var(--border);}
+.m-mapbar button{flex:1;min-height:40px;border-radius:20px;border:2px solid var(--navy);background:#fff;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;}
+.m-mapbar button.on{background:var(--navy);color:#fff;}
+html.m-land .m-mapbar{padding:4px 10px;}
+html.m-land .m-mapbar button{min-height:34px;}
+/* panels open over the DETAIL pane (below the strip in portrait, to the right in landscape) so the whole map stays visible while toggling */
+.m-panel{display:none;position:absolute;z-index:1500;background:#fff;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.3);padding:8px 12px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.m-panel.open{display:block;}
+html.m-port .m-panel{top:calc(100% + 6px);left:10px;right:10px;max-height:calc((100dvh - 105px)*.56 - 14px);}
+html.m-land .m-panel{left:calc(100% + 8px);bottom:0;width:calc(54vw - 20px);max-height:calc(100dvh - 130px);}
+html.m-land .m-panel .leaflet-control-layers-overlays{display:grid;grid-template-columns:1fr 1fr;column-gap:8px;}
+html.m-land .m-panel .leaflet-control-layers label{min-height:36px;font-size:14px;}
+html.m-lite .m-panel .leaflet-control-layers{border:0!important;background:none!important;box-shadow:none!important;}
+/* Leaflet layers control, re-parented into its panel */
+html.m-lite .m-panel .leaflet-control{float:none;clear:none;margin:0;box-shadow:none;border-radius:0;background:transparent;width:auto;}
+html.m-lite .m-panel .leaflet-control-layers>div{display:none;}
+html.m-lite .m-panel .leaflet-control-layers-expanded{padding:0!important;width:auto;max-height:none;}
+html.m-lite .m-panel .leaflet-control-layers label{margin:0;min-height:40px;font-size:15px;align-items:center;gap:10px;}
+html.m-lite .m-panel .leaflet-control-layers-selector{width:22px;height:22px;margin:0;}
+/* legend, re-parented into its panel: 2 columns */
+html.m-lite .m-panel .map-legend{background:transparent;box-shadow:none;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:13px;line-height:1.3;}
+html.m-lite .m-panel .map-legend>b{grid-column:1/-1;font-size:13px!important;}
+html.m-lite .m-panel .map-legend button{grid-column:1/-1;min-height:40px;font-size:13px!important;margin-top:4px!important;}
+
+/* heatmaps on phones: one per row, colour bar under the plot */
+html.m-lite #hmContainer{grid-template-columns:minmax(0,1fr)!important;}
+html.m-lite .hm-card{min-width:0;}
+/* one-line pointer to the desktop version, at the foot of the detail pane */
+html.m-lite .right-panel::after{content:"More features on desktop: Compare, Tree Canopy, Wind CFD";display:block;text-align:center;font-size:12px;line-height:1.4;color:var(--muted);padding:14px 8px 6px;}
+html.m-lite .hm-card canvas{max-width:100%;height:auto!important;}
+html.m-lite .right-panel{scrollbar-gutter:stable;}
+html.m-lite .hm-body{flex-direction:column;gap:2px;}
+html.m-lite .hm-colorbar{width:100%;display:block;}
+html.m-lite .hm-colorbar>div{display:none;}
+html.m-lite .hm-colorbar canvas{display:block;}
+/* welcome modal on phones: fits the screen, scrolls inside, button always reachable */
+.w-lite{display:none;}
+html.m-lite .w-full{display:none;}
+html.m-lite .w-lite{display:block;}
+html.m-lite #welcomeModal>div{width:calc(100% - 24px)!important;padding:16px 18px!important;max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom))!important;-webkit-overflow-scrolling:touch;}
+html.m-land #welcomeModal>div{padding:10px 18px!important;}
+html.m-lite #welcomeModal .w-actions{position:sticky;bottom:0;background:#fff;padding:10px 0 8px;margin-top:10px!important;}
+html.m-lite #welcomeModal .w-actions button{min-height:44px;padding:0 34px!important;font-size:14px!important;}
+
+/* phone variable tabs: portrait row 1 = years + month, row 2 = four chips; landscape = one swipeable row */
+html.m-lite .top-bar .m-break{display:none;}
+html.m-lite .top-bar .yr-btn{order:1;}
+html.m-lite .top-bar select{order:2;}
+html.m-lite .top-bar .var-btn{order:4;}
+html.m-port .top-bar{flex-wrap:wrap;overflow:visible;row-gap:6px;}
+html.m-port .top-bar select{flex:1 1 0;min-width:0;}
+html.m-port .top-bar .m-break{display:block;order:3;flex:0 0 100%;height:0;}
+html.m-port .top-bar .var-btn{flex:1 1 0;min-width:0;padding:0 4px;white-space:nowrap;}
+html.m-land .top-bar .var-btn{flex:0 0 auto;}
+/* detail pane controls and wind rose */
+html.m-lite .dn-btn,html.m-lite .comp-view-btn{min-height:36px;padding:0 12px;font-size:12px;}
+html.m-lite .toggle-row{gap:8px;}
+html.m-lite .chart-card{padding:10px;}
+html.m-lite .chart-card>div[style*="display:flex"]{flex-wrap:wrap;}
+html.m-lite .wr-compact{flex-direction:column;align-items:center;}
+html.m-lite .wr-legend-v{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;width:100%;box-sizing:border-box;font-size:12px;}
+html.m-lite .wr-legend-v>div:first-child{flex:0 0 100%;text-align:center;margin-bottom:0!important;}
+html.m-lite .wr-legend-v .wr-leg-item{margin-bottom:0;}
+</style>
+</head>
+<body>
+
+<!-- Heatmap hover tooltip -->
+<div id="hmTooltip" style="
+  position:fixed;display:none;pointer-events:none;z-index:9000;
+  background:rgba(27,42,74,0.93);color:#fff;border-radius:8px;
+  padding:8px 12px;font-size:12px;line-height:1.6;
+  box-shadow:0 2px 10px rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);">
+</div>
+
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="load-msg">Loading BEAM Dashboard</div>
+  <div class="load-sub" id="loadSub">Fetching data…</div>
+</div>
+
+<header>
+  <div class="beam-logo">
+    <a href="https://coolnus-beam.sg" target="_blank" rel="noopener" title="CoolNUS-BEAM website">
+      <img src="BEAM logo.png" alt="BEAM" style="height:44px;width:auto;display:block;cursor:pointer;"/>
+    </a>
+  </div>
+  <div class="hdiv"></div>
+  <div>
+    <div class="htitle">NUS Campus Weather Station Network</div>
+    <div class="beam-expand">Baselining · Evaluating · Action · Monitoring</div>
+    <div class="hsub">40 Stations · Hourly Data · <span id="hsubYear">2025</span></div>
+  </div>
+  <button type="button" onclick="showWelcomeModal()" title="About this dashboard" style="margin-left:14px;padding:5px 13px;border-radius:20px;border:2px solid rgba(255,255,255,.55);background:transparent;color:#fff;cursor:pointer;font-size:12px;font-weight:700">ℹ About</button>
+</header>
+
+<div class="top-bar">
+  <button class="home-btn" onclick="showHome()">🏠 Home</button>
+  <button class="compare-btn" id="compareBtn" onclick="toggleCompare()">⚖ Compare</button>
+  <div class="sep"></div>
+  <span style="font-size:10px;color:var(--muted);font-weight:700">YEAR:</span>
+  <button class="yr-btn" data-year="2024" onclick="setYear(2024)">2024</button>
+  <button class="yr-btn active" data-year="2025" onclick="setYear(2025)">2025</button>
+  <button class="yr-btn" data-year="2026" onclick="setYear(2026)">2026</button>
+  <div class="sep"></div>
+  <span style="font-size:10px;color:var(--muted);font-weight:700">VARIABLE:</span>
+  <button class="var-btn active" data-var="AirTemp">🌡 Air Temp</button>
+  <button class="var-btn" data-var="RelHum">💧 Rel. Humidity</button>
+  <button class="var-btn" data-var="Wind">🌬 Wind</button>
+  <button class="var-btn" data-var="GlobalRad">☀ Solar Radiation</button>
+  <button class="var-btn" data-var="Canopy">🌳 Tree Canopy</button>
+  <button class="var-btn" data-var="Overall">⬛ Overall</button>
+  <select class="month-select" id="monthSel">
+    <option value="0">Annual View</option>
+    <option value="1">January</option><option value="2">February</option>
+    <option value="3">March</option><option value="4">April</option>
+    <option value="5">May</option><option value="6">June</option>
+    <option value="7">July</option><option value="8">August</option>
+    <option value="9">September</option><option value="10">October</option>
+    <option value="11">November</option><option value="12">December</option>
+  </select>
+  <div class="m-break"></div>
+</div>
+
+<div class="layout">
+  <div class="map-panel">
+    <div class="panel-hdr">📍 NUS Campus — Click station to explore</div>
+    <div id="map"></div>
+    <div class="m-mapbar" id="mMapBar">
+      <div class="m-panel" id="mLayersPanel"></div>
+      <div class="m-panel" id="mLegendPanel"></div>
+      <button type="button" id="mLayersBtn">&#x1F5C2; Layers</button>
+      <button type="button" id="mLegendBtn">&#x2139; Legend</button>
+    </div>
+  </div>
+
+  <div id="homeView">
+    <div class="home-inner">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">NUS Kent Ridge Campus · 2025 · Weather Radial Summary</div>
+      <img src="weather_radial_2025.png" alt="Weather Radial 2025" style="max-height:calc(100vh - 160px);width:auto;"/>
+      <div style="font-size:10px;color:var(--muted);margin-top:10px">Line = daily temp range &nbsp;·&nbsp; Colour = daytime solar radiation &nbsp;·&nbsp; Blue blob = rainfall &nbsp;·&nbsp; Purple blob = RH >82%</div>
+    </div>
+  </div>
+
+  <div class="right-panel" id="rightPanel">
+    <div class="no-sel">
+      <div style="font-size:44px;margin-bottom:10px">👆</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Select a station on the map</div>
+      <div style="font-size:12px;max-width:280px">Click any marker to explore weather data.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Welcome / About modal ──────────────────────────────────────────────── -->
+<div id="welcomeModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeWelcomeModal()">
+  <div style="background:#fff;border-radius:14px;max-width:560px;width:92%;max-height:88vh;overflow:auto;padding:26px 30px;box-shadow:0 10px 40px rgba(0,0,0,.35)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <img src="BEAM logo.png" alt="BEAM" style="height:38px"/>
+      <b style="font-size:16px;color:#1b2a4a">Welcome to the BEAM Weather Station Dashboard</b>
+    </div>
+    <div style="font-size:13px;color:#334155;line-height:1.55">
+      <p style="margin:0 0 10px">Explore microclimate data from <b>40 weather stations</b> across NUS Kent Ridge Campus and UTown, collected under the <a href="https://coolnus-beam.sg" target="_blank" rel="noopener" style="color:#1a73e8;font-weight:600">CoolNUS-BEAM</a> initiative — covering <b>April 2024 to June 2026</b>.</p>
+      <div style="font-weight:700;color:#1b2a4a;margin-bottom:4px">Quick start</div>
+      <ul class="w-full" style="margin:0 0 10px;padding-left:20px">
+        <li><b>Click any station</b> on the map to see its temperature, humidity, wind, and solar radiation</li>
+        <li>Use the <b>YEAR buttons</b> (2024 / 2025 / 2026) to switch years — 2024 starts in April, 2026 runs to June</li>
+        <li><b>⚖ Compare</b> lets you view up to 8 stations side by side</li>
+        <li>Green circles (G01–G25) are <b>greenery stations</b> measuring air temperature near vegetation</li>
+      </ul>
+      <ul class="w-lite" style="margin:0 0 10px;padding-left:20px">
+        <li><b>Tap any station</b> on the map to see its charts through the year</li>
+        <li>Use the <b>year buttons</b> (2024 / 2025 / 2026) and the month menu to change the period. 2024 starts in April, 2026 runs to June</li>
+        <li>Open <b>Layers</b> and <b>Legend</b> under the map. Green circles (G01-G25) are <b>greenery stations</b> (air temperature only)</li>
+        <li>Switch between <b>Temp, Humidity, Wind</b> (with a wind rose) and <b>Solar</b> with the tabs in the top bar. The <b>Heatmap</b> button shows all four by hour and month. Compare and the tree canopy views are on the desktop version</li>
+      </ul>
+      <p style="margin:0 0 12px;font-size:12px;color:#64748b;font-style:italic">Data is quality-controlled but research-grade; station-years with known sensor issues are flagged on their charts.</p>
+      <div style="border-top:1px solid #e2e8f0;padding-top:10px;font-size:11.5px;color:#64748b;line-height:1.5">
+        Created by <b>Dr. Marcel Ignatius</b> and <b>Joie Lim</b>, College of Design and Engineering, NUS.<br/>
+        CoolNUS-BEAM is funded by the National University of Singapore through the Campus Sustainability initiative, and supported by University Campus Infrastructure (UCI) and the Office of the Deputy President – Research &amp; Technology.
+      </div>
+    </div>
+    <div class="w-actions" style="text-align:center;margin-top:16px">
+      <button type="button" onclick="closeWelcomeModal()" style="padding:9px 30px;border-radius:22px;border:none;background:#1b2a4a;color:#fff;cursor:pointer;font-size:13px;font-weight:700">Get started</button>
+      <div style="font-size:10.5px;color:#94a3b8;margin-top:7px">Shown on your first visit — reopen anytime via <b>ℹ About</b> in the header</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sensor specification modal ─────────────────────────────────────────── -->
+<div id="specModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)closeSpecModal()">
+  <div style="background:#fff;border-radius:12px;max-width:780px;width:92%;max-height:85vh;overflow:auto;padding:20px 24px;box-shadow:0 10px 40px rgba(0,0,0,.35)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:15px;color:#1b2a4a">Weather Station Sensor Information</b>
+      <button type="button" onclick="closeSpecModal()" style="border:none;background:none;font-size:18px;cursor:pointer;color:#64748b;line-height:1">✕</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:2px solid #1b2a4a;text-align:left">
+        <th style="padding:6px 8px">Type</th><th style="padding:6px 8px">Model</th><th style="padding:6px 8px">Parameter</th>
+        <th style="padding:6px 8px">Range</th><th style="padding:6px 8px">Resolution</th><th style="padding:6px 8px">Accuracy</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="3" style="padding:6px 8px;vertical-align:top;font-weight:600">Data logger</td><td rowspan="3" style="padding:6px 8px;vertical-align:top">LSI Alpha-Log DLALA0100.1</td><td style="padding:6px 8px">Absolute pressure</td><td style="padding:6px 8px">500–1100 hPa</td><td style="padding:6px 8px">0.084 hPa</td><td style="padding:6px 8px">± 1 hPa</td></tr>
+        <tr><td style="padding:6px 8px">Wind speed (ultrasonic)</td><td style="padding:6px 8px">0–60 m/s</td><td style="padding:6px 8px">0.01 m/s</td><td style="padding:6px 8px">± 0.3 m/s</td></tr>
+        <tr><td style="padding:6px 8px">Wind direction (ultrasonic)</td><td style="padding:6px 8px">0–360°</td><td style="padding:6px 8px">0.1°</td><td style="padding:6px 8px">± 3°</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="3" style="padding:6px 8px;vertical-align:top;font-weight:600">All-in-one weather sensors</td><td rowspan="3" style="padding:6px 8px;vertical-align:top">LSI DNB200</td><td style="padding:6px 8px">Temperature</td><td style="padding:6px 8px">−40 °C – 80 °C</td><td style="padding:6px 8px">0.1 °C</td><td style="padding:6px 8px">± 0.3 °C</td></tr>
+        <tr><td style="padding:6px 8px">Relative humidity</td><td style="padding:6px 8px">0–100%</td><td style="padding:6px 8px">0.1%</td><td style="padding:6px 8px">3%</td></tr>
+        <tr><td style="padding:6px 8px">Pressure</td><td style="padding:6px 8px">600–1100 hPa</td><td style="padding:6px 8px">0.1 hPa</td><td style="padding:6px 8px">± 0.5 hPa</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px;font-weight:600">Pyranometer</td><td style="padding:6px 8px">LSI DPA863</td><td style="padding:6px 8px">Solar radiation</td><td style="padding:6px 8px">0–2000 W/m²</td><td style="padding:6px 8px">—</td><td style="padding:6px 8px">± 10%</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td style="padding:6px 8px;font-weight:600">Rain gauge</td><td style="padding:6px 8px">LSI DQA230.1</td><td style="padding:6px 8px">Rainfall amount</td><td style="padding:6px 8px">0–500 mm/h</td><td style="padding:6px 8px">0.2 mm</td><td style="padding:6px 8px">± 0.2 mm (0–20 mm/h) · 1% (20–240 mm/h) · 2% (&gt;240 mm/h)</td></tr>
+        <tr style="border-top:1px solid #e2e8f0"><td rowspan="2" style="padding:6px 8px;vertical-align:top;font-weight:600">3-axis ultrasonic anemometer</td><td rowspan="2" style="padding:6px 8px;vertical-align:top">LSI DNB146</td><td style="padding:6px 8px">Wind speed</td><td style="padding:6px 8px">0–70 m/s</td><td style="padding:6px 8px">0.01 m/s</td><td style="padding:6px 8px">± 1%</td></tr>
+        <tr><td style="padding:6px 8px">Wind direction</td><td style="padding:6px 8px">0–360°</td><td style="padding:6px 8px">0.1°</td><td style="padding:6px 8px">± 1%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// BEAM dashboard — multi-year (2024–2026) build, updated 2026-07-03
+// ── Constants ──────────────────────────────────────────────────────────────
+const MONTHS    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_IN_M = [31,28,31,30,31,30,31,31,30,31,30,31];
+const DIR_LABELS= ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const WR_COLORS = ['#80deea','#00838f','#9575cd','#4a0030'];
+const WR_LABELS = ['0–1 m/s','1–2 m/s','2–3 m/s','>3 m/s'];
+
+// Reference image color palettes
+const CMAPS = {
+  AirTemp:   ['#ffffb2','#fecc5c','#fd8d3c','#f03b20','#bd0026'],
+  RelHum:    ['#f7fcf5','#c7e9c0','#74c476','#238b45','#00441b'],  // Greens
+  WindSpeed: ['#f7fbff','#c6dbef','#9ecae1','#4292c6','#08519c'],
+  GlobalRad: ['#0d0221','#7f1100','#cc4400','#ff8c00','#ffd700','#fffff0'],
+};
+
+const VARS = {
+  AirTemp:   {label:'Air Temperature',  unit:'°C',   color:'#c62828', cmap:CMAPS.AirTemp,
+               yMin:null, yMax:32,   cbTicks:[24,28,32,36]},
+  RelHum:    {label:'Relative Humidity',unit:'%',    color:'#238b45', cmap:CMAPS.RelHum,
+               yMin:50,   yMax:100,  cbTicks:[50,60,70,80,90,100]},
+  WindSpeed: {label:'Wind Speed',       unit:'m/s',  color:'#1565c0', cmap:CMAPS.WindSpeed,
+               yMin:0,    yMax:4,    cbTicks:[0,1,2,3,4]},
+  GlobalRad: {label:'Solar Radiation',  unit:'W/m²', color:'#e65100', cmap:CMAPS.GlobalRad,
+               yMin:0,    yMax:1000, cbTicks:[0,200,400,600,800,1000]},
+};
+
+// ── Multi-year data (2024–2026). WS/HM/WR always alias the active year. ────
+const YEARS=[2024,2025,2026];
+const DEFAULT_YEAR=2025;
+const YEAR_COLORS={2024:'#7b1fa2',2025:'#1a73e8',2026:'#e65100'};
+const YD={2024:{},2025:{},2026:{}};   // per-year {WS,HM,WR}, lazy-loaded
+let activeYear=DEFAULT_YEAR;
+let YEAR_SPAN={};                     // {year: 'Apr–Dec 2024'} from META.coverage
+let WS=null, HM=null, WR=null, META=null;
+let GR=null;                                // Greenery network (2025 Air Temp only, 24 stations)
+let TCM=null, SVI=null, TCMVALID=null;      // Tree canopy shade model + SVI segmentation data
+const TCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com/svi_tcm/2024-2025/';
+const TCM_LOCAL_BASE='TCM/';                // gitignored — only present in local working copies
+let TCM_BASE=TCM_S3_BASE;                   // S3 primary; loadData falls back to local if S3 unreachable
+const TCM_DATA_CACHE={};                    // lazy per-station tcm_data/{id}_hourly_month.json cache
+let GTCM=null;                              // Greenery TCM+SVI manifest (merged, keyed by GSxx) — no validation (no pyranometer)
+const GTCM_DATA_CACHE={};                   // lazy per-station tcm_data/{id}_hourly_month.json cache (greenery)
+const GTCM_S3_BASE='https://beam-dashboard-assets.s3.ap-southeast-1.amazonaws.com/svi_tcm/greenery-2026-07/';
+const GTCM_LOCAL_BASE='GREENERY_TCM/';      // gitignored — only present in local working copies
+let GTCM_BASE=GTCM_S3_BASE;                 // S3 primary; loadData falls back to local if S3 unreachable
+// G-network marker IDs (G01-G12,G14-G25) -> GS-network TCM IDs (GS01-GS25, no GS05).
+// Verified 1:1 by lat/lon match for all overlapping IDs; G05 has no TCM counterpart
+// (GS05 was never captured) and GS13 is orphaned (no G13 marker exists on the dashboard).
+const gidToGsId=gid=>'GS'+gid.slice(1);
+let activeVar='AirTemp', activeStation=null, activeGreenery=null, dnMode='a';
+let charts={}, mapInstance=null, markers={}, grMarkers={};
+let homeVisible=false, overallSubView='heatmap', compView='bar';
+let canopyPhotoMode='blended';              // real | segmented | blended — per-station photo toggle
+let compareMode=false, compareStations=[], compareGreenery=[];
+const MAX_CMP=8;
+const CMP_COLORS=['#1a73e8','#e65100','#2e7d32','#7b1fa2','#c2185b','#00838f','#f9a825','#5d4037'];
+const CMP_ALPHAS=CMP_COLORS.map(c=>{
+  const n=parseInt(c.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},0.15)`;
+});
+let yRangeCache={};  // {var: {min, max}} — fixed for chart y-axis
+let hmRangeCache={}; // {var: {min, max}} — global for heatmap colors
+let refreshAllMarkers=()=>{}; // assigned inside initMap once map is ready
+let refreshGreeneryMarkers=()=>{}; // assigned inside initMap once map is ready
+
+const WS_LOCATIONS={
+  WS01:'Lamp post - CP2A in front E3A',
+  WS02:'Roof - E1A upper roof',
+  WS03:'Lamp post - in between E2-E1A',
+  WS04:'Railing - E1 level 2',
+  WS05:'Railing - next to EW1',
+  WS06:'Roof - SDE3',
+  WS07:'Column - shelter next to E8',
+  WS08:'Lamp post - U-Turn in front of LKCNH Museum',
+  WS09:'Lamp post - roundabout YIH',
+  WS10:'Lamp post - bus stop NUS IT',
+  WS11:'Column - AS8 / bus stop Central Library',
+  WS12:'Roof - AS3',
+  WS13:'Lamp post - CP14 in front of AS5',
+  WS14:'Open ground - Eusoff Hall',
+  WS15:'Lamp post - CP13 School of Computing',
+  WS16:'Roof - BIZ1',
+  WS17:'Open ground - next to BIZ1',
+  WS18:'Lamp post - CP11 in front of Synchrotron',
+  WS19:'Roof - i4',
+  WS20:'Open ground - next to PGP Road',
+  WS21:'Open ground - King Edward VII Hall',
+  WS22:'Lamp post - to PGPR carpark',
+  WS23:'Column - near PGP water feature / pool',
+  WS24:'Roof - PGP Blk 2',
+  WS25:'Lamp post - next to running track',
+  WS26:'Open ground - tennis court',
+  WS27:'Open ground - NUS Sports Field',
+  WS28:'Lamp post - CP10 behind S17',
+  WS29:'Open ground - CP6 between S7 and S13',
+  WS30:'Lamp post - next to S8',
+  WS31:'Lamp post - next to S16',
+  WS32:'Lamp post - walkway between MD7-MD11',
+  WS33:'Lamp post - in front of CELS lobby',
+  WS34:'Open ground - Kent Ridge Road next to road to No 9 & 10',
+  WS35:'Roof - UTown Residential College 4',
+  WS36:'Open ground - UTown opposite Tembusu College',
+  WS37:'Roof - UTown Education Resource Centre',
+  WS38:'Column - UTown ERC seating',
+  WS39:'Lamp post - opposite Stephen Riady Centre',
+  WS40:'Lamp post - opposite UTown Plaza'
+};
+
+// ── Load ───────────────────────────────────────────────────────────────────
+const fetchJson=url=>fetch(url).then(r=>{if(!r.ok)throw new Error(`${url}: ${r.status}`);return r.json();});
+
+async function ensureYear(y){
+  const slot=YD[y];
+  if(!slot._ws) slot._ws=fetchJson(`GEOJSON/beam_ws_data_${y}.json`).then(d=>slot.WS=d);
+  if(!slot._hm) slot._hm=fetchJson(`GEOJSON/beam_heatmap_data_${y}.json`).then(d=>slot.HM=d);
+  if(!slot._wr) slot._wr=fetchJson(`GEOJSON/beam_windrose_data_${y}.json`).then(d=>slot.WR=d);
+  if(!slot._gr) slot._gr=fetchJson(`GEOJSON/beam_greenery_data_${y}.json`).then(d=>slot.GR=d)
+    .catch(e=>{console.warn('Greenery data unavailable for',y,e); slot.GR=null;});
+  await Promise.all([slot._ws,slot._hm,slot._wr,slot._gr]);
+  return slot;
+}
+
+async function setYear(y){
+  if(y===activeYear||!YEARS.includes(y))return;
+  const btn=document.querySelector(`.yr-btn[data-year="${y}"]`);
+  btn?.classList.add('loading');
+  try{
+    const slot=await ensureYear(y);
+    activeYear=y; WS=slot.WS; HM=slot.HM; WR=slot.WR;
+    if(slot.GR) GR=slot.GR;   // greenery network (markers persist; charts read GR)
+    setupRanges();
+  }catch(e){
+    console.error('Failed to load year',y,e);
+    btn?.classList.remove('loading');
+    return;
+  }
+  btn?.classList.remove('loading');
+  document.querySelectorAll('.yr-btn').forEach(b=>b.classList.toggle('active',+b.dataset.year===y));
+  const hs=document.getElementById('hsubYear'); if(hs)hs.textContent=YEAR_SPAN[y]||y;
+  updateMonthOptions();
+  if(homeVisible)return;
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
+  if(activeStation) renderAll();
+}
+
+// Grey out months the active year has no data for (2024: Jan–Mar, 2026: Jul–Dec)
+function updateMonthOptions(){
+  const cov=META?.coverage?.[String(activeYear)]||{};
+  const present=new Set();
+  Object.values(cov).forEach(c=>(c.months||[]).forEach(m=>present.add(m)));
+  document.querySelectorAll('#monthSel option').forEach(o=>{
+    const v=+o.value;
+    o.disabled=v>0&&present.size>0&&!present.has(v);
+  });
+  const sel=document.getElementById('monthSel');
+  if(sel.selectedOptions[0]?.disabled){ sel.value='0'; }
+}
+
+async function loadData(){
+  try{
+    document.getElementById('loadSub').textContent='Loading station data (1/5)…';
+    META=await fetchJson('GEOJSON/beam_meta_years.json');
+    YEARS.forEach(y=>{
+      const months=new Set();
+      Object.values(META.coverage?.[String(y)]||{}).forEach(c=>(c.months||[]).forEach(m=>months.add(m)));
+      const mi=Math.min(...months),ma=Math.max(...months);
+      YEAR_SPAN[y]=months.size?`${MONTHS[mi-1]}–${MONTHS[ma-1]} ${y}`:String(y);
+    });
+    document.getElementById('loadSub').textContent='Loading heatmap data (2/5)…';
+    const slot=await ensureYear(DEFAULT_YEAR);
+    WS=slot.WS; HM=slot.HM; WR=slot.WR;
+    const hs=document.getElementById('hsubYear'); if(hs)hs.textContent=YEAR_SPAN[activeYear]||activeYear;
+    updateMonthOptions();
+    document.getElementById('loadSub').textContent='Loading wind & meta (3/5)…';
+    GR=slot.GR||null;   // per-year greenery data, loaded by ensureYear
+    document.getElementById('loadSub').textContent='Loading tree canopy shade model (4/5)…';
+    try{
+      const loadTcmSet=base=>Promise.all(['manifest.json','svi_manifest.json','validation_summary.json']
+        .map(f=>fetch(base+f).then(r=>{if(!r.ok)throw new Error(`${base+f}: ${r.status}`);return r.json();})));
+      try{
+        [TCM, SVI, TCMVALID]=await loadTcmSet(TCM_S3_BASE);
+      }catch(e){
+        console.warn('S3 TCM/SVI source unreachable — falling back to local TCM/ folder:', e);
+        TCM_BASE=TCM_LOCAL_BASE;
+        [TCM, SVI, TCMVALID]=await loadTcmSet(TCM_LOCAL_BASE);
+      }
+    }catch(e){
+      console.warn('TCM/SVI data unavailable — Tree Canopy tab will show an empty state:', e);
+      TCM=null; SVI=null; TCMVALID=null;
+    }
+    try{
+      const loadGtcmSet=base=>fetch(base+'manifest.json').then(r=>{if(!r.ok)throw new Error(`${base}manifest.json: ${r.status}`);return r.json();});
+      try{
+        GTCM=await loadGtcmSet(GTCM_S3_BASE);
+      }catch(e){
+        console.warn('S3 Greenery TCM/SVI source unreachable — falling back to local GREENERY_TCM/ folder:', e);
+        GTCM_BASE=GTCM_LOCAL_BASE;
+        GTCM=await loadGtcmSet(GTCM_LOCAL_BASE);
+      }
+    }catch(e){
+      console.warn('Greenery TCM/SVI data unavailable — Greenery Canopy tab will show an empty state:', e);
+      GTCM=null;
+    }
+    document.getElementById('loadSub').textContent='Rendering (5/5)…';
+    document.getElementById('loadingOverlay').style.display='none';
+    setupRanges();
+    initMap();
+    maybeShowWelcome();
+    // Prefetch the other years' monthly/daily data in the background so the
+    // year toggle and year-comparison charts respond instantly. Heatmap and
+    // windrose files stay lazy (loaded on first switch to that year).
+    YEARS.filter(y=>y!==activeYear).forEach(y=>{
+      const slot=YD[y];
+      if(!slot._ws) slot._ws=fetchJson(`GEOJSON/beam_ws_data_${y}.json`)
+        .then(d=>{slot.WS=d; if(activeStation&&!compareMode&&!homeVisible)renderAll();})
+        .catch(e=>{console.warn('Prefetch failed for',y,e); slot._ws=null;});
+    });
+  }catch(e){
+    document.getElementById('loadSub').textContent='Error: '+e.message;
+  }
+}
+
+function setupRanges(){
+  // Heatmap color ranges from global data
+  hmRangeCache = META.hm_ranges;
+
+  // Chart Y-axis ranges: fixed across all stations + all modes
+  const varKeys=['AirTemp','RelHum','WindSpeed','GlobalRad'];
+  const modes=['a','d','n'];
+  varKeys.forEach(v=>{
+    let mn=Infinity, mx=-Infinity;
+    Object.keys(WS.stations).forEach(sid=>{
+      modes.forEach(mode=>{
+        const key=mode==='a'?v:`${v}_${mode}`;
+        Object.values(WS.monthly[sid]||{}).forEach(m=>{const val=m[key];if(val!=null){if(val<mn)mn=val;if(val>mx)mx=val;}});
+        Object.values(WS.daily[sid]||{}).forEach(d=>{const val=d[key];if(val!=null){if(val<mn)mn=val;if(val>mx)mx=val;}});
+      });
+    });
+    const vi=VARS[v];
+    const floorMin=vi.yMin!=null?Math.min(mn,vi.yMin):mn;
+    const ceilMax =vi.yMax!=null?vi.yMax:Math.ceil(mx*1.05);
+    yRangeCache[v]={min:floorMin, max:ceilMax};
+  });
+}
+
+// ── Compare mode ──────────────────────────────────────────────────────────
+function toggleCompare(){
+  compareMode=!compareMode;
+  document.getElementById('compareBtn').classList.toggle('active',compareMode);
+  // Grey out / restore Overall button
+  const overallBtn=document.querySelector('.var-btn[data-var="Overall"]');
+  if(overallBtn){
+    overallBtn.style.opacity=compareMode?'0.35':'';
+    overallBtn.style.pointerEvents=compareMode?'none':'';
+  }
+  if(!compareMode){
+    compareStations=[]; compareGreenery=[];
+    setVarButtonsForGreenery(false);
+    refreshAllMarkers(); // makeIcon lives inside initMap's closure — use the exported refresher
+    refreshGreeneryMarkers();
+    showCharts(); if(activeStation) renderAll();
+  } else {
+    // Switch away from Overall if currently selected
+    if(activeVar==='Overall'){
+      const firstBtn=document.querySelector('.var-btn[data-var="AirTemp"]');
+      document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
+      firstBtn?.classList.add('active');
+      activeVar='AirTemp';
+    }
+    compareStations=[]; compareGreenery=[];
+    if(activeStation) compareStations.push(activeStation);
+    refreshAllMarkers(); // compare colors are applied inside markerHtml via compareStations
+    if(activeGreenery){ activeGreenery=null; }
+    setVarButtonsForGreenery(false);
+    refreshGreeneryMarkers();
+    showCharts(); renderCompare();
+  }
+}
+
+
+function renderCompare(){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  showCharts();
+  const panel=document.getElementById('rightPanel');
+  if(activeVar==='Canopy'){ renderCompareCanopy(panel); return; }
+  const ms=+document.getElementById('monthSel').value;
+  const isWind=activeVar==='Wind';
+  const vi=VARS[activeVar==='Overall'?'AirTemp':isWind?'WindSpeed':activeVar];
+  const varKey=activeVar==='Overall'?'AirTemp':isWind?'WindSpeed':activeVar;
+  const isSolar=varKey==='GlobalRad';
+  const effectiveDn=dnMode==='hm'?'a':dnMode;
+  const dk=isSolar?'GlobalRad':effectiveDn==='a'?varKey:`${varKey}_${effectiveDn}`;
+
+  if(!compareStations.length){
+    panel.innerHTML=`<div class="no-sel">
+      <div style="font-size:32px;margin-bottom:10px">⚖</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} stations on the map to compare them. Use the Variable buttons above to switch variables.</div>
+    </div>`;
+    return;
+  }
+
+  // Build panel
+  const chips=compareStations.map((sid,i)=>`
+    <span class="cmp-chip" style="background:${CMP_COLORS[i]}">
+      ${sid} <span style="font-size:10px;opacity:.8">${WS.stations[sid]?.type}</span>
+      <button type="button" data-remove="${sid}" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.85);font-size:14px;line-height:1;padding:0 0 0 4px;font-weight:700">✕</button>
+    </span>`).join('');
+
+  const legendItems=compareStations.map((sid,i)=>`
+    <span class="cmp-legend-item">
+      <span class="cmp-dot" style="background:${CMP_COLORS[i]}"></span>${sid}
+    </span>`).join('');
+
+  const modeNote=isSolar?'☀ Daytime only (7–19h)'
+    :effectiveDn==='d'?'☀ Daytime (7–19h)'
+    :effectiveDn==='n'?'🌙 Nighttime'
+    :'All Day';
+
+  // Wind rose helper (used in both HTML and draw phase)
+  const wrSuffix=effectiveDn==='a'?'':effectiveDn==='d'?'_d':'_n';
+  const getWrData=(sid)=>ms===0
+    ? WR?.[`wr_annual${wrSuffix}`]?.[sid]
+    : WR?.[`wr_monthly${wrSuffix}`]?.[sid]?.[String(ms)];
+
+  const wrLegendHtml=WR_LABELS.map((l,i)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[i]}"></div>${l}</div>`).join('');
+
+  const wrCols=Math.min(Math.max(compareStations.length,2),4);
+  const windRoseCards=isWind?`
+    <div class="chart-card">
+      <div class="chart-title">Wind Rose — ${ms===0?'Annual':MONTHS[ms-1]} · ${modeNote}</div>
+      <div class="chart-sub">16 direction bins · Speed-binned frequency</div>
+      <div style="display:grid;grid-template-columns:repeat(${wrCols},1fr);gap:8px;margin-top:8px">
+        ${compareStations.map((sid,i)=>`
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="font-size:11px;font-weight:700;color:${CMP_COLORS[i]}">${sid}</div>
+              <canvas id="wr_cmp_${i}" style="display:block"></canvas>
+              <div class="wr-legend-v" style="font-size:9px">
+                ${WR_LABELS.map((l,j)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[j]}"></div>${l}</div>`).join('')}
+              </div>
+            </div>`).join('')}
+      </div>
+    </div>`
+  :'';
+
+  panel.innerHTML=`
+    <div class="cmp-panel-hdr">
+      <div style="font-size:12px;font-weight:700;color:#7dd3fc">⚖ Comparing Stations</div>
+      ${chips}
+      <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareStations.length} slot${MAX_CMP-compareStations.length===1?'':'s'} left)`:`<span style="color:#f59e0b">Max ${MAX_CMP} stations reached</span>`}</span>
+      ${compareStations.length>0?`<button type="button" id="clearCmpBtn" style="margin-left:8px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✕ Clear All</button>`:''}
+
+    </div>
+
+    ${!isSolar?`<div class="toggle-row" style="margin-bottom:10px">
+      <label>Period:</label>
+      <button class="dn-btn ${effectiveDn==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+      <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+      <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    </div>`:''}
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Monthly Trend Comparison</div>
+      <div class="chart-sub">${modeNote} · ${YEAR_SPAN[activeYear]||activeYear}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:234px"><canvas id="cmp_monthly"></canvas></div>
+    </div>
+
+    ${ms===0?`<div class="chart-card">
+      <div class="chart-title">${vi.label} — Daily Comparison (${YEAR_SPAN[activeYear]||activeYear})</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_daily"></canvas></div>
+    </div>`:`<div class="chart-card">
+      <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily Comparison</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_modays"></canvas></div>
+    </div>`}
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Annual Summary</div>
+      <div class="chart-sub">Mean ± range · ${modeNote}</div>
+      <div class="chart-wrap" style="height:156px"><canvas id="cmp_summary"></canvas></div>
+    </div>
+
+    ${windRoseCards}`;
+
+  // Wire up buttons directly after innerHTML is set (before charts are created)
+  const clearBtn=document.getElementById('clearCmpBtn');
+  if(clearBtn) clearBtn.addEventListener('click',()=>{
+    compareStations=[];
+    refreshAllMarkers();
+    showCharts(); renderCompare();
+  });
+  panel.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.getAttribute('data-remove');
+      const idx=compareStations.indexOf(sid);
+      if(idx>=0) compareStations.splice(idx,1);
+      refreshAllMarkers();
+      showCharts(); renderCompare();
+    });
+  });
+
+  const yrCmp=getYRange(varKey,'detail');
+  const cmpOpts=(yRange)=>({
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+      x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+    }
+  });
+
+  // Monthly trend
+  const mDatasets=compareStations.map((sid,i)=>({
+    label:sid,
+    data:Array.from({length:12},(_,m)=>WS.monthly[sid]?.[m+1]?.[dk]??null),
+    borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+    fill:false, tension:0.3, pointRadius:3, pointHoverRadius:5, borderWidth:2
+  }));
+  charts.cmpMonthly=new Chart(document.getElementById('cmp_monthly'),{
+    type:'line', data:{labels:MONTHS, datasets:mDatasets},
+    options:{...cmpOpts(getYRange(varKey,'avg')),
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+  });
+
+  // Daily / monthly-days
+  if(ms===0){
+    const allDays=Object.keys(WS.daily[compareStations[0]]||{}).sort();
+    const dLabels=allDays.map(d=>d.slice(8)==='01'?MONTHS[+d.slice(5,7)-1]:'');
+    const dDatasets=compareStations.map((sid,i)=>({
+      label:sid,
+      data:allDays.map(d=>WS.daily[sid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:'transparent',
+      fill:false, tension:0.3, pointRadius:0, borderWidth:1.2
+    }));
+    charts.cmpDaily=new Chart(document.getElementById('cmp_daily'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+        scales:{...cmpOpts(yrCmp).scales,
+          x:{...cmpOpts(yrCmp).scales.x, ticks:{font:{size:9},maxRotation:0,autoSkip:false,
+            callback(v,i){return dLabels[i]||''}}}}}
+    });
+  } else {
+    const moDays=Object.keys(WS.daily[compareStations[0]]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dDatasets=compareStations.map((sid,i)=>({
+      label:sid,
+      data:moDays.map(d=>WS.daily[sid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+      fill:true, tension:0.3, pointRadius:2, borderWidth:2
+    }));
+    charts.cmpModays=new Chart(document.getElementById('cmp_modays'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+    });
+  }
+
+  // Annual summary bar chart (mean per station)
+  const sumLabels=compareStations.map(s=>s);
+  const sumData=compareStations.map(s=>{
+    const vals=Array.from({length:12},(_,m)=>WS.monthly[s]?.[m+1]?.[dk]).filter(v=>v!=null);
+    return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+  });
+  charts.cmpSummary=new Chart(document.getElementById('cmp_summary'),{
+    type:'bar',
+    data:{labels:sumLabels, datasets:[{data:sumData,
+      backgroundColor:compareStations.map((_,i)=>CMP_COLORS[i]),
+      borderRadius:6, maxBarThickness:40}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+      scales:{
+        y:{min:getYRange(varKey,'avg').min,max:getYRange(varKey,'avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+        x:{grid:{display:false},ticks:{font:{size:12,weight:'bold'}}}
+      }}
+  });
+
+  // Draw wind roses for each compared station (Wind tab only)
+  if(isWind){
+    requestAnimationFrame(()=>{
+      const firstCanvas=document.getElementById('wr_cmp_0');
+      const parentW=firstCanvas?.parentElement?.parentElement?.offsetWidth||300;
+      const sz=Math.min(Math.max(Math.floor((parentW-40)/wrCols)-8,100),180);
+      compareStations.forEach((sid,i)=>{
+        const canvas=document.getElementById(`wr_cmp_${i}`);
+        if(!canvas)return;
+        canvas.width=sz; canvas.height=sz;
+        const wrData=getWrData(sid);
+        if(wrData) drawWindRose(`wr_cmp_${i}`,wrData);
+        else{
+          const ctx=canvas.getContext('2d');
+          ctx.fillStyle='#9ca3af'; ctx.font='10px Segoe UI'; ctx.textAlign='center';
+          ctx.fillText('No data',sz/2,sz/2);
+        }
+      });
+    });
+  }
+}
+
+// ── Compare mode: Tree Canopy / Shade side-by-side ─────────────────────────
+function renderCompareCanopy(panel){
+  const chips=compareStations.map((sid,i)=>`
+    <span class="cmp-chip" style="background:${CMP_COLORS[i]}">
+      ${sid} <span style="font-size:10px;opacity:.8">${WS.stations[sid]?.type}</span>
+      <button type="button" data-remove="${sid}">✕</button>
+    </span>`).join('');
+
+  if(!compareStations.length){
+    panel.innerHTML=`<div class="no-sel">
+      <div style="font-size:32px;margin-bottom:10px">🌳</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active — Tree Canopy</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} stations on the map to compare their shade model side by side.</div>
+    </div>`;
+    return;
+  }
+
+  if(!TCM || !SVI || !TCMVALID){
+    panel.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load.</div></div>`;
+    return;
+  }
+
+  const cards=compareStations.map((sid,i)=>{
+    const tcmRec=TCM[sid], sviRec=SVI[sid];
+    if(!sviRec){
+      return `<div style="border:1.5px dashed #e2e8f0;border-radius:8px;padding:14px;text-align:center;color:#94a3b8;font-size:11px">
+        <div style="font-weight:700;color:${CMP_COLORS[i]};margin-bottom:4px">${sid}</div>No SVI/TCM data for this station</div>`;
+    }
+    if(!tcmRec){
+      return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-weight:700;color:${CMP_COLORS[i]};margin-bottom:6px">${sid} <span style="font-size:10px;color:var(--muted);font-weight:400">roof reference — not modeled</span></div>
+        <img src="${TCM_BASE+sviRec.blended}" style="width:100%;border-radius:6px" alt="${sid} blended segmentation"/>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px">📷 Imagery: ${captureLabel(sviRec.capture)||'—'}</div>
+      </div>`;
+    }
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:10px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap">
+        <span style="font-weight:700;color:${CMP_COLORS[i]}">${sid}</span>
+        <span style="font-size:10px;color:var(--muted)">SVF ${TCM_SVF[sid]!=null?TCM_SVF[sid].toFixed(2):'—'}</span>
+        ${tcmRec.excluded?'<span style="font-size:9px;color:#c62828;font-weight:700">⚠ EXCLUDED</span>':''}
+      </div>
+      <img src="${TCM_BASE+tcmRec.segmentation.blended}" style="width:100%;border-radius:6px;margin-bottom:6px" alt="${sid} blended segmentation"/>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Canopy reduction: <b style="color:var(--text)">${tcmRec.canopy_reduction_pct}%</b> · rank ${tcmRec.shade_rank} · 📷 ${captureLabel(tcmRec.capture)||'—'}</div>
+      <img src="${TCM_BASE+tcmRec.tcm_charts.heatmap_transmittance}" style="width:100%;border-radius:6px" alt="${sid} transmittance heatmap"/>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML=`
+    <div class="cmp-panel-hdr">
+      <div style="font-size:12px;font-weight:700;color:#7dd3fc">🌳 Comparing Tree Canopy / Shade</div>
+      ${chips}
+      <span style="font-size:10px;color:#94a3b8;margin-left:4px">${compareStations.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareStations.length} slot${MAX_CMP-compareStations.length===1?'':'s'} left)`:`<span style="color:#f59e0b">Max ${MAX_CMP} stations reached</span>`}</span>
+    </div>
+    <div class="tcm-banner tcm-banner-note">Modeled data, from a single photo per station (capture date on each card — two campaigns ~9 months apart, so comparisons mix two canopy states). Transmittance heatmaps show relative shade patterns, not measured weather. See the per-station Tree Canopy tab for full detail.</div>
+    <div style="display:grid;grid-template-columns:repeat(${Math.min(compareStations.length,4)},1fr);gap:10px">${cards}</div>`;
+
+  panel.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sid=btn.getAttribute('data-remove');
+      const idx=compareStations.indexOf(sid);
+      if(idx>=0) compareStations.splice(idx,1);
+      refreshAllMarkers();
+      showCharts(); renderCompare();
+    });
+  });
+}
+
+// ── Compare mode dispatcher — picks WS network vs Greenery network ─────────
+function renderActiveCompare(){
+  if(compareGreenery.length) renderCompareGreenery();
+  else renderCompare();
+}
+
+// ── Compare mode: Greenery network (Air Temp only) ──────────────────────────
+function renderCompareGreenery(){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  showCharts();
+  const panel=document.getElementById('rightPanel');
+  const ms=+document.getElementById('monthSel').value;
+  const vi=VARS.AirTemp;
+  const effectiveDn=dnMode==='hm'?'a':dnMode;
+  const dk=getDataKey('AirTemp',effectiveDn);
+
+  if(!compareGreenery.length){
+    panel.innerHTML=`<div class="no-sel">
+      <div style="font-size:32px;margin-bottom:10px">⚖</div>
+      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:6px">Compare Mode Active — Greenery</div>
+      <div style="font-size:12px;max-width:280px;color:var(--muted)">Click up to ${MAX_CMP} greenery (triangle) stations on the map to compare their Air Temp.</div>
+    </div>`;
+    return;
+  }
+
+  const chips=compareGreenery.map((gid,i)=>`
+    <span class="cmp-chip" style="background:${CMP_COLORS[i]}">
+      ${gid} <span style="font-size:10px;opacity:.8">${GR.stations[gid]?.name||''}</span>
+      <button type="button" data-remove-gr="${gid}" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.85);font-size:14px;line-height:1;padding:0 0 0 4px;font-weight:700">✕</button>
+    </span>`).join('');
+
+  const legendItems=compareGreenery.map((gid,i)=>`
+    <span class="cmp-legend-item">
+      <span class="cmp-dot" style="background:${CMP_COLORS[i]}"></span>${gid}
+    </span>`).join('');
+
+  const modeNote=effectiveDn==='d'?'☀ Daytime (7–19h)':effectiveDn==='n'?'🌙 Nighttime':'All Day';
+
+  panel.innerHTML=`
+    <div class="cmp-panel-hdr" style="background:#1b5e20">
+      <div style="font-size:12px;font-weight:700;color:#fff">⚖ Comparing Greenery Stations</div>
+      ${chips}
+      <span style="font-size:10px;color:#d7e8d0;margin-left:4px">${compareGreenery.length<MAX_CMP?`(click map to add — ${MAX_CMP-compareGreenery.length} slot${MAX_CMP-compareGreenery.length===1?'':'s'} left)`:`<span style="color:#fde68a">Max ${MAX_CMP} stations reached</span>`}</span>
+      ${compareGreenery.length>0?`<button type="button" id="clearCmpGrBtn" style="margin-left:8px;padding:3px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;cursor:pointer;font-size:10px;font-weight:600">✕ Clear All</button>`:''}
+    </div>
+
+    <div class="toggle-row" style="margin-bottom:10px">
+      <label>Period:</label>
+      <button class="dn-btn ${effectiveDn==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+      <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+      <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Monthly Trend Comparison</div>
+      <div class="chart-sub">${modeNote} · ${activeYear}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:234px"><canvas id="cmp_gr_monthly"></canvas></div>
+    </div>
+
+    ${ms===0?`<div class="chart-card">
+      <div class="chart-title">${vi.label} — Daily Comparison (${activeYear})</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_gr_daily"></canvas></div>
+    </div>`:`<div class="chart-card">
+      <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily Comparison</div>
+      <div class="chart-sub">${modeNote}</div>
+      <div class="cmp-legend-row">${legendItems}</div>
+      <div class="chart-wrap" style="height:208px"><canvas id="cmp_gr_modays"></canvas></div>
+    </div>`}
+
+    <div class="chart-card">
+      <div class="chart-title">${vi.label} — Annual Summary</div>
+      <div class="chart-sub">Mean · ${modeNote}</div>
+      <div class="chart-wrap" style="height:156px"><canvas id="cmp_gr_summary"></canvas></div>
+    </div>`;
+
+  const clearBtn=document.getElementById('clearCmpGrBtn');
+  if(clearBtn) clearBtn.addEventListener('click',()=>{
+    compareGreenery=[];
+    setVarButtonsForGreenery(false);
+    refreshGreeneryMarkers();
+    showCharts(); renderCompareGreenery();
+  });
+  panel.querySelectorAll('[data-remove-gr]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const gid=btn.getAttribute('data-remove-gr');
+      const idx=compareGreenery.indexOf(gid);
+      if(idx>=0) compareGreenery.splice(idx,1);
+      setVarButtonsForGreenery(compareGreenery.length>0);
+      refreshGreeneryMarkers();
+      showCharts(); renderCompareGreenery();
+    });
+  });
+
+  const cmpOpts=(yRange)=>({
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+      x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+    }
+  });
+
+  // Monthly trend
+  const mDatasets=compareGreenery.map((gid,i)=>({
+    label:gid,
+    data:Array.from({length:12},(_,m)=>GR.monthly[gid]?.[m+1]?.[dk]??null),
+    borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+    fill:false, tension:0.3, pointRadius:3, pointHoverRadius:5, borderWidth:2
+  }));
+  charts.cmpGrMonthly=new Chart(document.getElementById('cmp_gr_monthly'),{
+    type:'line', data:{labels:MONTHS, datasets:mDatasets},
+    options:{...cmpOpts(getYRange('AirTemp','avg')),
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+  });
+
+  const yrCmp=getYRange('AirTemp','detail');
+  if(ms===0){
+    const allDays=Object.keys(GR.daily[compareGreenery[0]]||{}).sort();
+    const dLabels=allDays.map(d=>d.slice(8)==='01'?MONTHS[+d.slice(5,7)-1]:'');
+    const dDatasets=compareGreenery.map((gid,i)=>({
+      label:gid,
+      data:allDays.map(d=>GR.daily[gid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:'transparent',
+      fill:false, tension:0.3, pointRadius:0, borderWidth:1.2
+    }));
+    charts.cmpGrDaily=new Chart(document.getElementById('cmp_gr_daily'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+        scales:{...cmpOpts(yrCmp).scales,
+          x:{...cmpOpts(yrCmp).scales.x, ticks:{font:{size:9},maxRotation:0,autoSkip:false,
+            callback(v,i){return dLabels[i]||''}}}}}
+    });
+  } else {
+    const moDays=Object.keys(GR.daily[compareGreenery[0]]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dDatasets=compareGreenery.map((gid,i)=>({
+      label:gid,
+      data:moDays.map(d=>GR.daily[gid]?.[d]?.[dk]??null),
+      borderColor:CMP_COLORS[i], backgroundColor:CMP_ALPHAS[i],
+      fill:true, tension:0.3, pointRadius:2, borderWidth:2
+    }));
+    charts.cmpGrModays=new Chart(document.getElementById('cmp_gr_modays'),{
+      type:'line', data:{labels:dLabels, datasets:dDatasets},
+      options:{...cmpOpts(yrCmp),
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}}}
+    });
+  }
+
+  const sumLabels=compareGreenery.map(g=>g);
+  const sumData=compareGreenery.map(g=>{
+    const vals=Array.from({length:12},(_,m)=>GR.monthly[g]?.[m+1]?.[dk]).filter(v=>v!=null);
+    return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+  });
+  charts.cmpGrSummary=new Chart(document.getElementById('cmp_gr_summary'),{
+    type:'bar',
+    data:{labels:sumLabels, datasets:[{data:sumData,
+      backgroundColor:compareGreenery.map((_,i)=>CMP_COLORS[i]),
+      borderRadius:6, barThickness:40}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.parsed.y?.toFixed(2)} ${vi.unit}`}}},
+      scales:{
+        y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+        x:{grid:{display:false},ticks:{font:{size:12,weight:'bold'}}}
+      }}
+  });
+}
+
+// ── Sensor spec modal ───────────────────────────────────────────────────────
+function showSpecModal(){ document.getElementById('specModal').style.display='flex'; }
+function closeSpecModal(){ document.getElementById('specModal').style.display='none'; }
+
+// ── Welcome / About modal (first visit + ℹ About button) ───────────────────
+function showWelcomeModal(){ document.getElementById('welcomeModal').style.display='flex'; }
+function closeWelcomeModal(){
+  document.getElementById('welcomeModal').style.display='none';
+  try{ localStorage.setItem('beamWelcomeSeen','1'); }catch(e){}
+}
+function maybeShowWelcome(){
+  let seen=null;
+  try{ seen=localStorage.getItem('beamWelcomeSeen'); }catch(e){}
+  if(!seen) showWelcomeModal();
+}
+
+// ── Home / Charts toggle ───────────────────────────────────────────────────
+function showHome(){
+  homeVisible=true;
+  document.getElementById('homeView').style.display='flex';
+  document.getElementById('rightPanel').style.display='none';
+}
+function showCharts(){
+  homeVisible=false;
+  document.getElementById('homeView').style.display='none';
+  document.getElementById('rightPanel').style.display='block';
+}
+
+// ── Greenery network var-btn gating ─────────────────────────────────────────
+// Greenery stations only have Air Temp (2025) plus the Canopy shade tab (TCM/SVI,
+// no pyranometer so no validation tier) — grey out everything else and default
+// to Air Temp while a greenery station is selected.
+function setVarButtonsForGreenery(isGreenery){
+  document.querySelectorAll('.var-btn').forEach(b=>{
+    const exempt=b.dataset.var==='AirTemp'||b.dataset.var==='Canopy';
+    b.classList.toggle('disabled', isGreenery && !exempt);
+  });
+  if(isGreenery){
+    // Keep Canopy active if that's already what the user is looking at; otherwise
+    // (or on first entry from a non-exempt tab) default to Air Temp.
+    const keep=activeVar==='AirTemp'||activeVar==='Canopy';
+    document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
+    if(!keep) activeVar='AirTemp';
+    document.querySelector(`.var-btn[data-var="${activeVar}"]`)?.classList.add('active');
+  }
+}
+
+// ── Map ────────────────────────────────────────────────────────────────────
+function initMap(){
+  mapInstance=L.map('map').setView([1.2966,103.7764],15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_4hpq_1_0a4e81905447dea960020e42',{
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution/">CARTO</a>',subdomains:'abcd',maxZoom:20
+  }).addTo(mapInstance);
+
+  refreshAllMarkers=function(){
+    Object.keys(markers).forEach(s=>markers[s].setIcon(makeIcon(s,s===activeStation)));
+  };
+  function markerHtml(sid,sel){
+    const t=WS.stations[sid]?.type;
+    const cmpIdx=compareStations.indexOf(sid);
+    const bg=compareMode&&cmpIdx>=0 ? CMP_COLORS[cmpIdx]
+           : sel ? '#1a73e8'
+           : t==='Ground'?'#1b2a4a':t==='Roof'?'#c62828':'#7b1fa2';
+    const num=sid.replace('WS','');
+    const base=`background:${bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.5);`;
+    if(t==='Ground') return `<div style="${base}width:30px;height:30px;border-radius:50%;border:2.5px solid #fff;font-size:10px">${num}</div>`;
+    if(t==='Roof')   return `<div style="${base}width:32px;height:22px;border-radius:3px;border:2.5px solid #fff;font-size:10px">${num}</div>`;
+    return `<div style="${base}width:32px;height:22px;border-radius:3px;border:3px solid #fff;outline:1.5px solid rgba(0,0,0,.35);font-size:10px">${num}</div>`;
+  }
+  function makeIcon(sid,sel){
+    const t=WS.stations[sid]?.type,isC=t==='Ground';
+    const w=isC?30:32,h=isC?30:22;
+    return L.divIcon({html:markerHtml(sid,sel),iconSize:[w,h],iconAnchor:[w/2,h/2],className:''});
+  }
+  const wsLayer=L.layerGroup();
+  Object.entries(WS.stations).forEach(([sid,meta])=>{
+    const m=L.marker([meta.lat,meta.lon],{icon:makeIcon(sid,false)})
+      .addTo(wsLayer)
+      .bindTooltip(`<b>${sid}</b><br>${meta.type}<br><span style="font-size:11px;color:#555">${WS_LOCATIONS[sid]||''}</span>`,{direction:'top',offset:[0,-12]})
+      .on('click',()=>{
+        if(windMode)return; // Climatic Map mode is exclusive — station charts disabled
+        if(compareMode){
+          if(compareGreenery.length)return; // a Greenery comparison is already active — one network at a time
+          const idx=compareStations.indexOf(sid);
+          if(idx>=0){ compareStations.splice(idx,1); }
+          else if(compareStations.length<MAX_CMP){ compareStations.push(sid); }
+          refreshAllMarkers();
+          showCharts(); renderCompare();
+        } else {
+          if(activeGreenery){ grMarkers[activeGreenery]?.setIcon(makeGrIcon(activeGreenery,false)); activeGreenery=null; setVarButtonsForGreenery(false); }
+          if(activeStation)markers[activeStation].setIcon(makeIcon(activeStation,false));
+          activeStation=sid; m.setIcon(makeIcon(sid,true));
+          showCharts(); renderAll();
+        }
+      });
+    markers[sid]=m;
+  });
+  wsLayer.addTo(mapInstance); // visible by default
+
+  // ── Greenery network markers (2025 Air Temp only, 24 stations) ─────────
+  const greeneryLayer=L.layerGroup();
+  const GR_COLOR='#1b5e20', GR_SEL='#1a73e8';
+  const GR_W=26; // circle diameter
+  function grMarkerHtml(gid,sel){
+    const cmpIdx=compareGreenery.indexOf(gid);
+    const bg=compareMode&&cmpIdx>=0 ? CMP_COLORS[cmpIdx] : sel ? GR_SEL : GR_COLOR;
+    const label='G'+String(parseInt(gid.slice(1),10)).padStart(2,'0');
+    // Plain circle, no outline
+    return `<div style="width:${GR_W}px;height:${GR_W}px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.45)">${label}</div>`;
+  }
+  function makeGrIcon(gid,sel){
+    return L.divIcon({html:grMarkerHtml(gid,sel),iconSize:[GR_W,GR_W],iconAnchor:[GR_W/2,GR_W/2],className:''});
+  }
+  if(GR && GR.stations){
+    refreshGreeneryMarkers=function(){
+      Object.keys(grMarkers).forEach(g=>grMarkers[g].setIcon(makeGrIcon(g,g===activeGreenery)));
+    };
+    Object.entries(GR.stations).forEach(([gid,meta])=>{
+      const gm=L.marker([meta.lat,meta.lon],{icon:makeGrIcon(gid,false)})
+        .addTo(greeneryLayer)
+        .bindTooltip(`<b>${gid}</b> — Greenery Station<br><span style="font-size:11px;color:#555">${meta.name}</span>`,{direction:'top',offset:[0,-10]})
+        .on('click',()=>{
+          if(windMode)return; // Climatic Map mode is exclusive — station charts disabled
+          if(compareMode){
+            if(compareStations.length)return; // a WS comparison is already active — one network at a time
+            const idx=compareGreenery.indexOf(gid);
+            if(idx>=0){ compareGreenery.splice(idx,1); }
+            else if(compareGreenery.length<MAX_CMP){ compareGreenery.push(gid); }
+            setVarButtonsForGreenery(compareGreenery.length>0);
+            refreshGreeneryMarkers();
+            showCharts(); renderCompareGreenery();
+            return;
+          }
+          if(activeStation){ markers[activeStation]?.setIcon(makeIcon(activeStation,false)); activeStation=null; }
+          if(activeGreenery) grMarkers[activeGreenery]?.setIcon(makeGrIcon(activeGreenery,false));
+          activeGreenery=gid; gm.setIcon(makeGrIcon(gid,true));
+          setVarButtonsForGreenery(true);
+          showCharts(); renderGreenery();
+        });
+      grMarkers[gid]=gm;
+    });
+    greeneryLayer.addTo(mapInstance); // visible by default
+  }
+
+  const leg=L.control({position:'bottomleft'});
+  leg.onAdd=()=>{
+    const d=L.DomUtil.create('div','map-legend');
+    d.innerHTML=`<b style="font-size:10px;display:block;margin-bottom:2px">Station Type</b>
+      <div class="leg-item"><div class="leg-circle" style="background:#1b2a4a"></div>Ground</div>
+      <div class="leg-item"><div class="leg-rect" style="background:#c62828"></div>Rooftop</div>
+      <div class="leg-item"><div class="leg-rect3" style="background:#7b1fa2"></div>Rooftop 3-axis</div>
+      <div class="leg-item"><div class="leg-circle" style="background:#1a73e8"></div>Selected</div>
+      <div class="leg-item"><div class="leg-circle" style="background:#1b5e20"></div>Greenery (Ta only)</div>
+      <button type="button" onclick="showSpecModal()" style="margin-top:5px;padding:3px 9px;border-radius:12px;border:1px solid #1b2a4a;background:#fff;color:#1b2a4a;cursor:pointer;font-size:10px;font-weight:700">ℹ Specifications</button>`;
+    L.DomEvent.disableClickPropagation(d);
+    return d;
+  };
+  leg.addTo(mapInstance);
+  if(window.__mLite){ const gp=document.getElementById('mLegendPanel'); if(gp) gp.appendChild(leg.getContainer()); }
+
+  // ── Wind CFD layer (2 Jul 2024 2 PM, 1.5 m height; lazy-loaded) ────────
+  // Assets built by tools/build_wind_layer.py from SOURCE DATA/WIND_RAW.
+  // wind_grid.bin: Uint16 LE, speeds (mm/s) then directions (0.1°), 65535=NoData.
+  const windLayer=L.layerGroup();
+  let windD=null, windLoading=false, windCanvas=null, windRedraw=()=>{}, windMode=false;
+  const WIND_CLASSES=[[0,'#4575b4'],[0.1,'#91bfdb'],[0.2,'#e0f3f8'],[0.3,'#fee090'],[0.4,'#fc8d59'],[0.5,'#d73027']];
+  const WIND_SECT=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+
+  const windTip=L.DomUtil.create('div','wind-tip',mapInstance.getContainer());
+
+  const windLegCtl=L.control({position:'bottomleft'});
+  windLegCtl.onAdd=()=>{
+    const d=L.DomUtil.create('div','map-legend');
+    // arrow glyphs mirror the canvas arrows (same lengths/weights/open head); class 0 has none
+    const AL=[0,9,12,15,19,24], AW=[0,1,1.25,1.55,1.9,2.3];
+    const arrowSvg=k=>{
+      if(k===0)return '<span style="display:inline-block;width:28px;flex-shrink:0"></span>';
+      const len=AL[k], h=3+0.9*k, x1=1+len;
+      return `<svg width="28" height="12" viewBox="0 0 28 12" style="flex-shrink:0"><g stroke="#14121a" stroke-width="${AW[k]}" stroke-linecap="round" fill="none"><line x1="1" y1="6" x2="${x1}" y2="6"/><line x1="${x1}" y1="6" x2="${(x1-h*0.9).toFixed(1)}" y2="${(6-h*0.45).toFixed(1)}"/><line x1="${x1}" y1="6" x2="${(x1-h*0.9).toFixed(1)}" y2="${(6+h*0.45).toFixed(1)}"/></g></svg>`;
+    };
+    const rows=WIND_CLASSES.map(([lo,c],i)=>{
+      const lbl=i===WIND_CLASSES.length-1?`&gt; ${lo.toFixed(1)} m/s`:`${lo.toFixed(1)} – ${WIND_CLASSES[i+1][0].toFixed(1)}`;
+      return `<div class="leg-item" style="gap:6px"><div style="width:14px;height:11px;background:${c};border:1px solid #999;flex-shrink:0"></div>${arrowSvg(i)}<span>${lbl}</span></div>`;
+    }).join('');
+    d.innerHTML=`<b style="font-size:10px;display:block;margin-bottom:2px">Pedestrian-Level Wind Speed (m/s)</b>${rows}
+      <div style="font-size:9px;color:#666;line-height:1.45;margin-top:5px;max-width:180px">Wind simulated by Computational Fluid Dynamics (CFD) with boundary conditions of 2 July 2024, 2 PM. Grid size: 12 m; wind speed at 1.5 m above ground.<br><span style="color:#888">CFD simulation: Daniel HII Jun Chung &amp; Takamasa HASAMA, Kajima Technical Research Institute Singapore (KaTRIS).</span><br>Hover the map for values.</div>`;
+    return d;
+  };
+
+  function windCellAt(ll){
+    if(!windD)return null;
+    const m=windD.meta;
+    if(ll.lng<m.west||ll.lng>=m.east||ll.lat<=m.south||ll.lat>m.north)return null;
+    const col=Math.floor((ll.lng-m.west)/windD.dx), row=Math.floor((m.north-ll.lat)/windD.dy);
+    const i=row*m.nx+col, s=windD.sp[i];
+    if(s===65535)return null;
+    return {speed:s*0.001, dir:windD.dr[i]*0.1, row, col};
+  }
+
+  function initWindCanvas(){
+    windCanvas=L.DomUtil.create('canvas','');
+    windCanvas.style.pointerEvents='none';
+    mapInstance.getPanes().overlayPane.appendChild(windCanvas);
+    windRedraw=function(){
+      if(!windD)return;
+      const sz=mapInstance.getSize();
+      windCanvas.width=sz.x; windCanvas.height=sz.y;
+      L.DomUtil.setPosition(windCanvas,mapInstance.containerPointToLayerPoint([0,0]));
+      if(!mapInstance.hasLayer(windLayer))return;
+      const ctx=windCanvas.getContext('2d'), m=windD.meta;
+      const p1=mapInstance.latLngToContainerPoint([m.north,m.west]);
+      const p2=mapInstance.latLngToContainerPoint([m.north-windD.dy,m.west+windD.dx]);
+      const cellPx=Math.max(Math.abs(p2.x-p1.x),0.001);
+      const stride=Math.max(1,Math.round(40/cellPx));   // arrows at every zoom, ~40 px apart; stride=1 (all cells) once zoomed in
+      const bb=mapInstance.getBounds();
+      const c0=Math.max(0,Math.floor((bb.getWest()-m.west)/windD.dx)-stride);
+      const c1=Math.min(m.nx-1,Math.ceil((bb.getEast()-m.west)/windD.dx)+stride);
+      const r0=Math.max(0,Math.floor((m.north-bb.getNorth())/windD.dy)-stride);
+      const r1=Math.min(m.ny-1,Math.ceil((m.north-bb.getSouth())/windD.dy)+stride);
+      // ArcGIS-style graduated arrows (thin line + open head), sized by speed class.
+      // Class 0 (0.0–0.1 m/s) intentionally not drawn.
+      const A_LEN=[0,9,12,15,19,24], A_LW=[0,1,1.25,1.55,1.9,2.3];
+      ctx.strokeStyle='rgba(15,18,25,.9)'; ctx.lineCap='round';
+      for(let row=r0;row<=r1;row+=stride)for(let col=c0;col<=c1;col+=stride){
+        const i=row*m.nx+col, s=windD.sp[i];
+        if(s===65535||s<100)continue;                   // NoData or calm (<0.1 m/s)
+        const k=Math.min(5,Math.floor(s/100));          // speed class 1..5 (0.1 m/s bins, 5 = >0.5)
+        const a=(windD.dr[i]*0.1+180)*Math.PI/180;      // flow direction (toward)
+        const ux=Math.sin(a), uy=-Math.cos(a);
+        const p=mapInstance.latLngToContainerPoint([m.north-(row+0.5)*windD.dy, m.west+(col+0.5)*windD.dx]);
+        const len=A_LEN[k], h=3+0.9*k;
+        const x1=p.x+ux*len/2, y1=p.y+uy*len/2;
+        const aL=a+Math.PI-0.46, aR=a+Math.PI+0.46;     // open-head barbs
+        ctx.lineWidth=A_LW[k];
+        ctx.beginPath();
+        ctx.moveTo(p.x-ux*len/2, p.y-uy*len/2); ctx.lineTo(x1,y1);
+        ctx.moveTo(x1,y1); ctx.lineTo(x1+h*Math.sin(aL), y1-h*Math.cos(aL));
+        ctx.moveTo(x1,y1); ctx.lineTo(x1+h*Math.sin(aR), y1-h*Math.cos(aR));
+        ctx.stroke();
+      }
+    };
+    mapInstance.on('moveend zoomend resize',windRedraw);
+  }
+
+  function loadWind(){
+    if(windLoading)return; windLoading=true;
+    Promise.all([
+      fetch('GEOJSON/wind_meta.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json();}),
+      fetch('GEOJSON/wind_grid.bin').then(r=>{if(!r.ok)throw new Error(r.status);return r.arrayBuffer();})
+    ]).then(([meta,buf])=>{
+      const n=meta.nx*meta.ny;
+      windD={meta, sp:new Uint16Array(buf,0,n), dr:new Uint16Array(buf,n*2,n),
+             dx:(meta.east-meta.west)/meta.nx, dy:(meta.north-meta.south)/meta.ny};
+      L.imageOverlay('GEOJSON/wind_overlay.png',[[meta.south,meta.west],[meta.north,meta.east]],
+        {opacity:0.72, className:'wind-overlay-img', interactive:false}).addTo(windLayer);
+      initWindCanvas(); windRedraw();
+    }).catch(e=>{windLoading=false; console.warn('Wind layer load failed:',e);});
+  }
+
+  let windHl=null;                                     // hovered-cell highlight
+  function clearWindHl(){if(windHl){mapInstance.removeLayer(windHl);windHl=null;}}
+  mapInstance.on('mousemove',e=>{
+    const c=mapInstance.hasLayer(windLayer)?windCellAt(e.latlng):null;
+    if(!c){windTip.style.display='none';clearWindHl();return;}
+    const sect=WIND_SECT[Math.round(c.dir/22.5)%16];
+    windTip.innerHTML=`<b>${c.speed.toFixed(2)} m/s</b> <span class="wind-tip-arrow" style="transform:rotate(${Math.round(c.dir+180)}deg)">&uarr;</span> ${sect} (${Math.round(c.dir)}&deg;)`;
+    const hb=[[windD.meta.north-(c.row+1)*windD.dy, windD.meta.west+c.col*windD.dx],
+              [windD.meta.north-c.row*windD.dy,     windD.meta.west+(c.col+1)*windD.dx]];
+    if(windHl)windHl.setBounds(hb);
+    else windHl=L.rectangle(hb,{color:'#fff',weight:1,fillColor:'#fff',fillOpacity:0.5,interactive:false}).addTo(mapInstance);
+    windTip.style.display='block';
+    const sz=mapInstance.getSize();
+    windTip.style.left=Math.min(e.containerPoint.x+14, sz.x-windTip.offsetWidth-6)+'px';
+    windTip.style.top=Math.max(e.containerPoint.y-windTip.offsetHeight-10, 6)+'px';
+  });
+  mapInstance.getContainer().addEventListener('mouseleave',()=>{windTip.style.display='none';clearWindHl();});
+  mapInstance.on('overlayadd',e=>{if(e.layer===windLayer){
+    windMode=true;
+    document.querySelector('.layout').classList.add('wind-full');   // map → full width
+    document.body.classList.add('wind-mode');                       // variable bar disabled
+    if(!windD)loadWind();
+    windLegCtl.addTo(mapInstance);
+    setTimeout(()=>mapInstance.invalidateSize(),60);                // fires 'resize' → windRedraw
+  }});
+  mapInstance.on('overlayremove',e=>{if(e.layer===windLayer){
+    windMode=false;
+    document.querySelector('.layout').classList.remove('wind-full');
+    document.body.classList.remove('wind-mode');
+    mapInstance.removeControl(windLegCtl); windTip.style.display='none'; clearWindHl();
+    setTimeout(()=>mapInstance.invalidateSize(),60);
+  }});
+
+  // ── GeoJSON overlay layers ─────────────────────────────────────────────
+  const geojsonLayers = {};
+
+  const layerDefs = [
+    {
+      file: 'GEOJSON/ALL_TREECANOPY.geojson',
+      name: '🌿 Tree Canopy',
+      style: { color:'#2e7d32', weight:1, fillColor:'#a5d6a7', fillOpacity:0.30, opacity:0.6, interactive:false }
+    },
+    {
+      file: 'GEOJSON/Forest%20(1).geojson',
+      name: '🌳 Forest',
+      style: { color:'#1b5e20', weight:1, fillColor:'#388e3c', fillOpacity:0.40, opacity:0.7, interactive:false }
+    },
+    {
+      file: 'GEOJSON/ALL_BUILDINGS_wgs84.geojson',
+      name: '🏢 Buildings',
+      style: { color:'#737373', weight:1, fillColor:'#FFFFFF', fillOpacity:1.00, opacity:1.0, interactive:false}
+    },
+    {
+      file: 'GEOJSON/surrounding_buildings_wgs84.geojson',
+      name: '🏢 Surroundings',
+      style: { color:'#737373', weight:1, fillColor:'#FFFFFF', fillOpacity:1.00, opacity:1.0, interactive:false}
+    },
+    {
+      file: 'GEOJSON/BEAM_Hotspots_display.geojson',
+      name: '🔴 Hotspot Zones',
+      style: { color:'#c62828', weight:1.5, fillColor:'#ef9a9a', fillOpacity:0.25, opacity:0.8, interactive:false}
+    }
+  ];
+
+  const overlayControl = {};
+
+  Promise.all(layerDefs.map(def => {
+    // phone: only Hotspot Zones loads at startup; the other layers fetch when first ticked
+    if(window.__mLite && !def.file.includes('Hotspots')) return Promise.resolve({ def, data: null });
+    return fetch(def.file).then(r => r.json()).then(data => ({ def, data }));
+  })).then(results => {
+    results.forEach(({def, data}, i) => {
+      const layer = L.geoJSON(data, {
+        style: def.style,
+        onEachFeature: def.onEachFeature
+      });
+      if(data){ layer.addTo(mapInstance); }  // desktop: all on by default
+      else{
+        let started = false;
+        layer.on('add', () => {
+          if(started) return; started = true;
+          fetch(def.file).then(r => r.json()).then(d => layer.addData(d))
+            .catch(e => { started = false; console.warn('Layer load failed', def.name, e); });
+        });
+      }
+      geojsonLayers[def.name] = layer;
+      overlayControl[def.name] = layer;
+    });
+    const pinSvg=c=>`<svg width="10" height="13" viewBox="0 0 24 32" style="vertical-align:-2px"><path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill="${c}"/><circle cx="12" cy="12" r="5" fill="#fff"/></svg>`;
+    overlayControl[`${pinSvg('#000')} BEAM WS Stations`] = wsLayer;
+    if(GR && GR.stations) overlayControl[`${pinSvg('#1b5e20')} Greenery Stations (Ta)`] = greeneryLayer;
+
+    // Layer toggle control (top-right of map), with a LAYERS title
+    const layersCtl=L.control.layers(null, overlayControl, {
+      position: 'topright',
+      collapsed: false
+    }).addTo(mapInstance);
+    layersCtl.getContainer().insertAdjacentHTML('afterbegin',
+      '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;margin:2px 4px 5px;color:#1b2a4a">LAYERS</div>');
+
+    // Climatic Map — separate panel below LAYERS; exclusive full-width mode
+    if(window.__mLite){ const lp=document.getElementById('mLayersPanel'); if(lp) lp.appendChild(layersCtl.getContainer()); }
+    const climCtl=L.control.layers(null, {'💨 Wind Map (CFD)': windLayer}, {
+      position: 'topright',
+      collapsed: false
+    }).addTo(mapInstance);
+    if(window.__mLite) climCtl.getContainer().style.display='none';
+    climCtl.getContainer().insertAdjacentHTML('afterbegin',
+      '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;margin:2px 4px 5px;color:#1b2a4a">CLIMATIC MAP</div>');
+  }).catch(e => console.warn('GeoJSON load error:', e));
+}
+
+// ── Render dispatcher ──────────────────────────────────────────────────────
+function renderAll(){
+  if(!activeStation||homeVisible)return;
+  const sid=activeStation, meta=WS.stations[sid];
+  const isWind=activeVar==='Wind', isOverall=activeVar==='Overall', isCanopy=activeVar==='Canopy';
+  const statVar=isWind?'WindSpeed':(isOverall||isCanopy)?'AirTemp':activeVar;
+  const vi=VARS[statVar], ms=+document.getElementById('monthSel').value;
+
+  let allVals=[];
+  for(let m=1;m<=12;m++){const v=WS.monthly[sid]?.[m]?.[statVar];if(v!=null)allVals.push(v);}
+  const avg=allVals.length?(allVals.reduce((a,b)=>a+b)/allVals.length).toFixed(2):'--';
+  const vmin=allVals.length?Math.min(...allVals).toFixed(2):'--';
+  const vmax=allVals.length?Math.max(...allVals).toFixed(2):'--';
+  const rng=(allVals.length&&vmin!='--')?(vmax-vmin).toFixed(2):'--';
+
+  document.getElementById('rightPanel').innerHTML=`
+    <div class="sel-bar">
+      <div class="sel-id">${sid}</div>
+      <div><div class="sel-name">${meta.type} Station</div>
+      <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)}</div></div>
+    </div>
+    ${isCanopy?'':`<div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${avg}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Annual Avg</div></div>
+      <div class="stat-box"><div class="stat-val">${vmin}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Min</div></div>
+      <div class="stat-box"><div class="stat-val">${vmax}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Max</div></div>
+      <div class="stat-box"><div class="stat-val">${rng}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Seasonal Range</div></div>
+    </div>`}
+    <div id="mainContent"></div>`;
+
+  const cont=document.getElementById('mainContent');
+  if(isOverall)     renderOverall(cont,ms);
+  else if(isWind)   renderWind(cont,ms);
+  else if(isCanopy) renderCanopy(cont,sid);
+  else              renderCharts(cont,ms);
+}
+
+// ── Greenery network dispatcher (24 stations, 2025 Air Temp; + Canopy shade tab) ─
+function renderGreenery(){
+  if(!activeGreenery||homeVisible)return;
+  const gid=activeGreenery, meta=GR.stations[gid];
+
+  if(activeVar==='Canopy'){
+    document.getElementById('rightPanel').innerHTML=`
+      <div class="sel-bar" style="background:#1b5e20">
+        <div class="sel-id">${gid}</div>
+        <div><div class="sel-name">Greenery Station — ${meta.name}</div>
+        <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)} · Tree Canopy Shade Model</div></div>
+      </div>
+      <div id="mainContent"></div>`;
+    renderGreeneryCanopy(document.getElementById('mainContent'), gid);
+    return;
+  }
+
+  const vi=VARS.AirTemp, ms=+document.getElementById('monthSel').value;
+
+  let allVals=[];
+  for(let m=1;m<=12;m++){const v=GR.monthly[gid]?.[m]?.AirTemp;if(v!=null)allVals.push(v);}
+  const avg=allVals.length?(allVals.reduce((a,b)=>a+b)/allVals.length).toFixed(2):'--';
+  const vmin=allVals.length?Math.min(...allVals).toFixed(2):'--';
+  const vmax=allVals.length?Math.max(...allVals).toFixed(2):'--';
+  const rng=(allVals.length&&vmin!='--')?(vmax-vmin).toFixed(2):'--';
+
+  document.getElementById('rightPanel').innerHTML=`
+    <div class="sel-bar" style="background:#1b5e20">
+      <div class="sel-id">${gid}</div>
+      <div><div class="sel-name">Greenery Station — ${meta.name}</div>
+      <div class="sel-type">Lat ${meta.lat.toFixed(5)}, Lon ${meta.lon.toFixed(5)} · Air Temp only</div></div>
+    </div>
+    ${!GR.monthly?.[gid]?`<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#e8f5e9;border:1px solid #2e7d32;font-size:11px;color:#1b5e20">🌿 No data for ${gid} in ${activeYear} — this station wasn't active yet or hasn't reported.</div>`:''}
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${avg}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Annual Avg</div></div>
+      <div class="stat-box"><div class="stat-val">${vmin}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Min</div></div>
+      <div class="stat-box"><div class="stat-val">${vmax}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Monthly Max</div></div>
+      <div class="stat-box"><div class="stat-val">${rng}</div><div class="stat-unit">${vi.unit}</div><div class="stat-lbl">Seasonal Range</div></div>
+    </div>
+    <div id="mainContent"></div>`;
+
+  renderGreeneryCharts(document.getElementById('mainContent'), ms);
+}
+
+function renderGreeneryCharts(cont,ms){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const gid=activeGreenery, vi=VARS.AirTemp;
+  const effectiveDn=dnMode==='hm'?'a':dnMode; // heatmap ignores day/night split (spans all 24h)
+  const dk=getDataKey('AirTemp',effectiveDn);
+  const allGids=Object.keys(GR.stations).sort();
+  const nums=allGids.map(g=>String(parseInt(g.slice(1),10)));
+
+  const toggleHtml=`<div class="toggle-row">
+    <label>Period:</label>
+    <button class="dn-btn ${effectiveDn==='a'&&dnMode!=='hm'?'active':''}" onclick="setDn('a')">All Day</button>
+    <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+    <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>
+  </div>`;
+
+  // Heatmap mode: single Air Temp hour x month grid for this station, then stop
+  if(dnMode==='hm'){
+    const grid=GR.heat?.[gid];
+    cont.innerHTML=toggleHtml+(grid?`
+      <div class="hm-card">
+        <div class="hm-title">${vi.label} <span style="font-weight:400;color:var(--muted)">(${vi.unit})</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, ${activeYear} · months with no data are left blank</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="gr_hm"></canvas></div>
+          <div class="hm-colorbar">
+            <div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">${vi.unit}</div>
+            <canvas id="gr_hm_cb"></canvas>
+          </div>
+        </div>
+      </div>`:`<div class="chart-card"><div class="chart-title">No heatmap data</div><div class="chart-sub">This station has no hourly data for ${activeYear}.</div></div>`);
+    if(grid){
+      requestAnimationFrame(()=>{
+        // grid[hour][month0] → transpose to data2d[month][hour] for drawHeatmapNew (Y=month, X=hour)
+        const data2d=Array.from({length:12},(_,m)=>Array.from({length:24},(_,h)=>grid[h]?.[m]??null));
+        const range=GR.heat_range||{min:22,max:36};
+        drawHeatmapNew('gr_hm',data2d,vi.cmap,MONTHS,range,'gr_hm_cb',vi.unit,vi.cbTicks,0,23);
+      });
+    }
+    return;
+  }
+
+  if(ms===0){
+    // Annual
+    const mData=Array.from({length:12},(_,i)=>GR.monthly[gid]?.[i+1]?.[dk]??null);
+    const allDays=Object.keys(GR.daily[gid]||{}).sort();
+    const dData=allDays.map(d=>GR.daily[gid][d]?.[dk]??null);
+    const dMidLabels=midMonthLabels(allDays);
+    const cData=allGids.map(g=>{
+      const vals=Array.from({length:12},(_,i)=>GR.monthly[g]?.[i+1]?.[dk]).filter(v=>v!=null);
+      return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+    });
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Average</div>
+        <div class="chart-sub">${gid} · ${activeYear} · months without data are left blank</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="gr_monthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Distribution</div>
+        <div class="chart-sub">${gid} · Box = daily values per month · × = mean</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="gr_monthly_bp"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Daily (${activeYear})</div>
+        <div class="chart-sub">${gid} · Alternating colors by month · Label at mid-month</div>
+        <div class="chart-wrap" style="height:140px"><canvas id="gr_daily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Greenery Station Comparison</div>
+        <div class="chart-sub">Annual average · ${gid} highlighted</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="gr_compare"></canvas></div>
+      </div>`;
+
+    charts.grMonthly=new Chart(document.getElementById('gr_monthly'),{
+      type:'bar',data:{labels:MONTHS,datasets:[{data:mData,backgroundColor:monthBarColors(MONTHS),borderRadius:3}]},
+      options:chartOpts(vi.unit,getYRange('AirTemp','avg'))});
+
+    try{
+      const bpData=MONTHS.map((_,i)=>{
+        const m=i+1;
+        return Object.keys(GR.daily[gid]||{}).filter(d=>+d.slice(5,7)===m)
+          .map(d=>GR.daily[gid][d]?.[dk]).filter(v=>v!=null);
+      });
+      const bpYr=getYRange('AirTemp','detail');
+      charts.grMonthlyBp=new Chart(document.getElementById('gr_monthly_bp'),{
+        type:'boxplot',
+        data:{labels:MONTHS,datasets:[{label:vi.label,data:bpData,
+          backgroundColor:'rgba(27,94,32,0.55)',borderColor:'#1b5e20',borderWidth:1.2,
+          barPercentage:0.5,categoryPercentage:0.7,
+          outlierRadius:2,outlierBackgroundColor:'#1b5e20',
+          meanBackgroundColor:'#1b5e20',meanBorderColor:'#1b5e20',
+          medianColor:'#1b2a4a'}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:bpTooltip(vi.unit)},
+          scales:{
+            y:{min:bpYr.min,max:bpYr.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
+               title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+            x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+          }}
+      });
+    }catch(e){
+      console.warn('Greenery monthly boxplot failed (plugin may not be loaded):', e);
+      const el=document.getElementById('gr_monthly_bp');
+      if(el)el.parentElement.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Boxplot unavailable — check CDN connection</div>';
+    }
+
+    charts.grDaily=new Chart(document.getElementById('gr_daily'),{
+      type:'bar',
+      data:{labels:dMidLabels,datasets:[{data:dData,backgroundColor:dayBarColors(allDays),borderRadius:0,barPercentage:1,categoryPercentage:1}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','detail').min,max:getYRange('AirTemp','detail').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:false,callback(v,i){return dMidLabels[i]||''}}}
+        }}});
+
+    charts.grCompare=new Chart(document.getElementById('gr_compare'),{
+      type:'bar',data:{labels:nums,datasets:[{data:cData,
+        backgroundColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'rgba(148,163,184,.5)'),
+        borderColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'transparent'),
+        borderWidth:2,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allGids[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},title:{display:true,text:'Greenery Station Code',font:{size:10},color:'#64748b'},ticks:{font:{size:8},maxRotation:45}}
+        }}});
+
+  } else {
+    // Monthly
+    const moDays=Object.keys(GR.daily[gid]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dData=moDays.map(d=>GR.daily[gid][d]?.[dk]??null);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dColors=dLabels.map((_,i)=>i%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)');
+    const cData=allGids.map(g=>GR.monthly[g]?.[ms]?.[dk]??null);
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily</div>
+        <div class="chart-sub">${gid} · ${MONTHS[ms-1]} 2025${moDays.length?'':' · no data this month'}</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="gr_modays"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Greenery Station Comparison (${MONTHS[ms-1]})</div>
+        <div class="chart-sub">All greenery stations · ${gid} highlighted</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="gr_compare"></canvas></div>
+      </div>`;
+
+    const moDayOpts=chartOpts(vi.unit,getYRange('AirTemp','detail'));
+    moDayOpts.scales.x.title={display:true,text:'Days of the Month',font:{size:9},color:'#64748b'};
+    charts.grModays=new Chart(document.getElementById('gr_modays'),{
+      type:'bar',data:{labels:dLabels,datasets:[{data:dData,backgroundColor:dColors,borderRadius:3}]},
+      options:moDayOpts});
+
+    charts.grCompare=new Chart(document.getElementById('gr_compare'),{
+      type:'bar',data:{labels:nums,datasets:[{data:cData,
+        backgroundColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'rgba(148,163,184,.5)'),
+        borderColor:allGids.map(g=>g===activeGreenery?'#1b5e20':'transparent'),
+        borderWidth:2,borderRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},
+          tooltip:{callbacks:{title:ctx=>allGids[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange('AirTemp','avg').min,max:getYRange('AirTemp','avg').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},title:{display:true,text:'Greenery Station Code',font:{size:10},color:'#64748b'},ticks:{font:{size:8},maxRotation:45}}
+        }}});
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function getDataKey(v,mode){ return (v==='GlobalRad'||mode==='a')?v:`${v}_${mode}`; }
+
+function monthBarColors(labels){ return labels.map((_,i)=>i%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)'); }
+
+function dayBarColors(days){ return days.map(d=>{const m=+d.slice(5,7)-1;return m%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)';}); }
+
+// Month labels at MIDDLE of month for 365-day bar
+function midMonthLabels(allDays){
+  const labels=allDays.map(()=>'');
+  let counts={}; // month->indices
+  allDays.forEach((d,i)=>{const m=+d.slice(5,7);if(!counts[m])counts[m]=[];counts[m].push(i);});
+  Object.values(counts).forEach(idxs=>{
+    const mid=idxs[Math.floor(idxs.length/2)];
+    labels[mid]=MONTHS[+allDays[mid].slice(5,7)-1];
+  });
+  return labels;
+}
+
+function chartOpts(unit,yRange,xlabelCb){
+  return{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${unit}`}}},
+    scales:{
+      y:{min:yRange.min,max:yRange.max,
+         grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
+         title:{display:true,text:unit,font:{size:10},color:'#64748b'}},
+      x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,
+         autoSkip:false, callback:xlabelCb||(function(v){return this.getLabelForValue(v);})}}
+    }
+  };
+}
+
+// ── Station-type symbol plugin ────────────────────────────────────────────
+Chart.register({
+  id:'wsTypeSymbols',
+  afterDraw(chart){
+    const types=chart.options._wsTypes;
+    if(!types||!types.length)return;
+    const ctx=chart.ctx, xAxis=chart.scales.x;
+    if(!xAxis)return;
+    ctx.save();
+    const symY=xAxis.top+4; // just below the axis line, above tick labels
+    xAxis.ticks.forEach((_,i)=>{
+      const type=types[i];
+      if(!type||type==='Ground')return;
+      const x=xAxis.getPixelForTick(i);
+      if(type==='Roof'){
+        ctx.strokeStyle='#c62828'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.strokeRect(x-5,symY,10,6);
+      } else { // Roof-3axis
+        ctx.fillStyle='#7b1fa2';
+        ctx.fillRect(x-5,symY,10,6);
+        ctx.fillStyle='#fff';
+        ctx.fillRect(x-1,symY+1,3,4);
+      }
+    });
+    ctx.restore();
+  }
+});
+
+const COMPARE_LEGEND = `
+  <div style="display:flex;gap:14px;align-items:center;margin-top:6px;font-size:10px;color:var(--muted);">
+    <span style="display:inline-flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:12px;height:7px;border:1.5px solid #c62828;border-radius:1px"></span>Rooftop
+    </span>
+    <span style="display:inline-flex;align-items:center;gap:5px">
+      <span style="display:inline-block;width:12px;height:7px;background:#7b1fa2;border-radius:1px;position:relative">
+        <span style="position:absolute;top:1px;left:3px;width:3px;height:5px;background:#fff;border-radius:0"></span>
+      </span>Rooftop 3-axis
+    </span>
+  </div>`;
+
+function setCompView(mode){ compView=mode; if(activeStation) renderAll(); }
+
+function compareOpts(unit,yRange,wsTypes){
+  const allSids=Object.keys(WS.stations).sort();
+  return{
+    responsive:true,maintainAspectRatio:false,
+    _wsTypes: wsTypes||[],
+    plugins:{legend:{display:false},
+      tooltip:{callbacks:{
+        title:ctx=>allSids[ctx[0].dataIndex],
+        label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${unit}`
+      }}},
+    scales:{
+      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
+         title:{display:true,text:unit,font:{size:10},color:'#64748b'}},
+      x:{grid:{display:false},
+         title:{display:true,text:'Weather Station Code',font:{size:10},color:'#64748b'},
+         ticks:{font:{size:8},maxRotation:45,padding:18,
+           color:(ctx)=>{
+             const t=wsTypes?.[ctx.index];
+             return t==='Roof'?'#c62828':t==='Roof-3axis'?'#7b1fa2':'#374151';
+           }
+         }}
+    }
+  };
+}
+
+// ── Year-vs-year comparison (per station) ──────────────────────────────────
+function yearsWithData(sid){ return YEARS.filter(y=>YD[y].WS?.monthly?.[sid]); }
+
+function yearCmpCardHtml(canvasId,sid,varKey,ms){
+  const ys=yearsWithData(sid);
+  if(ys.length<2)return '';
+  const vi=VARS[varKey];
+  const legend=ys.map(y=>`<span class="cmp-legend-item"><span class="cmp-dot" style="background:${YEAR_COLORS[y]}"></span>${YEAR_SPAN[y]||y}</span>`).join('');
+  return `<div class="chart-card">
+    <div class="chart-title">${vi.label} — Year Comparison${ms>0?` (${MONTHS[ms-1]})`:''}</div>
+    <div class="chart-sub">${sid} · ${ms===0?'Monthly averages, one line per year':'Daily values, one line per year'} · months without data are left blank</div>
+    <div class="cmp-legend-row">${legend}</div>
+    <div class="chart-wrap" style="height:190px"><canvas id="${canvasId}"></canvas></div>
+  </div>`;
+}
+
+function makeYearCmpChart(canvasId,sid,varKey,dk,ms){
+  const ys=yearsWithData(sid);
+  const el=document.getElementById(canvasId);
+  if(ys.length<2||!el)return;
+  const vi=VARS[varKey];
+  let labels,dataFor;
+  if(ms===0){
+    labels=MONTHS;
+    dataFor=y=>Array.from({length:12},(_,m)=>YD[y].WS.monthly[sid]?.[m+1]?.[dk]??null);
+  }else{
+    labels=Array.from({length:31},(_,i)=>String(i+1));
+    dataFor=y=>labels.map(d=>YD[y].WS.daily?.[sid]?.[`${y}-${String(ms).padStart(2,'0')}-${d.padStart(2,'0')}`]?.[dk]??null);
+  }
+  charts['yc_'+canvasId]=new Chart(el,{
+    type:'line',
+    data:{labels,datasets:ys.map(y=>({label:String(y),data:dataFor(y),
+      borderColor:YEAR_COLORS[y],backgroundColor:'transparent',fill:false,
+      tension:0.3,pointRadius:ms===0?3:0,pointHoverRadius:4,borderWidth:2,spanGaps:false}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+      scales:{
+        y:{min:getYRange(varKey,ms===0?'avg':'detail').min,max:getYRange(varKey,ms===0?'avg':'detail').max,
+           grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+        x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0},
+           title:ms>0?{display:true,text:'Day of Month',font:{size:9},color:'#64748b'}:undefined}
+      }}
+  });
+}
+
+// ── QC banner (sensor faults flagged at build time in beam_meta_years.json) ─
+function qcBannerHtml(sid){
+  const flags=META?.qc_flags?.[String(activeYear)]?.[sid];
+  if(!flags)return '';
+  const items=Object.entries(flags).map(([v,frac])=>`${VARS[v]?.label||v} — ${Math.round(frac*100)}% of readings were implausible (sensor fault) and have been removed`).join(' · ');
+  return `<div style="margin:6px 0;padding:8px 12px;border-radius:8px;background:#fff8e1;border:1px solid #f59e0b;font-size:11px;color:#92400e">⚠ <b>Sensor fault (${sid}, ${activeYear}):</b> ${items}. Remaining values may still warrant caution; periods with no valid data appear blank.</div>`;
+}
+
+// ── CHARTS ─────────────────────────────────────────────────────────────────
+function renderCharts(cont,ms){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const sid=activeStation,vi=VARS[activeVar],isSolar=activeVar==='GlobalRad';
+  const mode=isSolar?'a':dnMode, dk=getDataKey(activeVar,mode);
+  const yr=yRangeCache[activeVar];
+  const allSids=Object.keys(WS.stations).sort();
+  const nums=allSids.map(s=>s.replace('WS',''));
+  const wsTypes=allSids.map(s=>WS.stations[s]?.type);
+
+  const toggleHtml=`<div class="toggle-row">
+    ${isSolar
+      ? `<span style="font-size:10px;color:var(--muted)">☀ Solar — daytime only (7am–7pm)</span>`
+      : `<label>Period:</label>
+         <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+         <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+         <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>`
+      }
+  </div>`;
+
+  // If heatmap mode: show 4-variable heatmaps for this station, then stop
+  if(dnMode==='hm'){
+    cont.innerHTML=qcBannerHtml(sid)+toggleHtml+`<div id="hmContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px"></div>`;
+    const hmContainer=document.getElementById('hmContainer');
+    const hmVars=['AirTemp','RelHum','WindSpeed','GlobalRad'];
+    hmVars.forEach(v=>{
+      const vvi=VARS[v];
+      const card=document.createElement('div');
+      card.className='hm-card';
+      card.innerHTML=`
+        <div class="hm-title">${vvi.label} <span style="font-weight:400;color:var(--muted)">(${vvi.unit})</span></div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="hm_${v}"></canvas></div>
+          <div class="hm-colorbar">
+            <div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">${vvi.unit}</div>
+            <canvas id="hm_cb_${v}"></canvas>
+          </div>
+        </div>`;
+      hmContainer.appendChild(card);
+    });
+    requestAnimationFrame(()=>{
+      hmVars.forEach(v=>{
+        const vvi=VARS[v];
+        const raw=HM.annual_heat[sid]?.[v]?.['a'];
+        const yLabels=MONTHS;
+        const data2d=Array.from({length:12},(_,m)=>Array.from({length:24},(_,h)=>raw?.[h]?.[m]??null));
+        const hmRange=hmRangeCache[v]||{min:0,max:100};
+        const sH=(v==='GlobalRad')?6:0, eH=(v==='GlobalRad')?20:23;
+        drawHeatmapNew(`hm_${v}`,data2d,vvi.cmap,yLabels,hmRange,`hm_cb_${v}`,vvi.unit,vvi.cbTicks,sH,eH);
+      });
+    });
+    return;
+  }
+
+  if(ms===0){
+    // Annual
+    const mData=Array.from({length:12},(_,i)=>WS.monthly[sid]?.[i+1]?.[dk]??null);
+    const allDays=Object.keys(WS.daily[sid]||{}).sort();
+    const dData=allDays.map(d=>WS.daily[sid][d]?.[dk]??null);
+    const dMidLabels=midMonthLabels(allDays);
+    const cData=allSids.map(s=>{
+      const vals=Array.from({length:12},(_,i)=>WS.monthly[s]?.[i+1]?.[dk]).filter(v=>v!=null);
+      return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+    });
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Average</div>
+        <div class="chart-sub">${sid} · ${YEAR_SPAN[activeYear]||activeYear}${isSolar?' · Daytime 7–19h':''}</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="c_monthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Monthly Distribution</div>
+        <div class="chart-sub">${sid} · Box = daily values per month · × = mean</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="c_monthly_bp"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Daily (${activeYear})</div>
+        <div class="chart-sub">${sid} · Alternating colors by month · Label at mid-month</div>
+        <div class="chart-wrap" style="height:140px"><canvas id="c_daily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div class="chart-title">${vi.label} — All Station Comparison</div>
+          <button class="comp-view-btn ${compView==='bar'?'active':''}" onclick="setCompView('bar')">📊 Bar</button>
+          <button class="comp-view-btn ${compView==='box'?'active':''}" onclick="setCompView('box')">📦 Boxplot</button>
+        </div>
+        <div class="chart-sub">${compView==='bar'?'Annual average':'Distribution of daily values'} · ${sid} highlighted</div>
+        <div class="chart-wrap" style="height:${compView==='box'?200:170}px"><canvas id="c_compare"></canvas></div>
+        ${COMPARE_LEGEND}
+      </div>
+      ${yearCmpCardHtml('c_years',sid,activeVar,0)}`;
+
+    charts.monthly=new Chart(document.getElementById('c_monthly'),{
+      type:'bar',data:{labels:MONTHS,datasets:[{data:mData,backgroundColor:monthBarColors(MONTHS),borderRadius:3}]},
+      options:chartOpts(vi.unit,getYRange(activeVar,'avg'))});
+
+    // Monthly distribution boxplot (wrapped in try-catch so failures don't block other charts)
+    try{
+      const bpData=MONTHS.map((_,i)=>{
+        const m=i+1;
+        return Object.keys(WS.daily[sid]||{}).filter(d=>+d.slice(5,7)===m)
+          .map(d=>WS.daily[sid][d]?.[dk]).filter(v=>v!=null);
+      });
+      const stColor=WS.stations[sid]?.typeGroup==='Roof'?'rgba(210,140,110,0.65)':'rgba(134,178,120,0.65)';
+      const stBdr =WS.stations[sid]?.typeGroup==='Roof'?'#9a4030':'#4a7a38';
+      const bpYr=getYRange(activeVar,'detail');
+      charts.monthlyBp=new Chart(document.getElementById('c_monthly_bp'),{
+        type:'boxplot',
+        data:{labels:MONTHS,datasets:[{label:vi.label,data:bpData,
+          backgroundColor:stColor,borderColor:stBdr,borderWidth:1.2,
+          barPercentage:0.5,categoryPercentage:0.7,
+          outlierRadius:2,outlierBackgroundColor:stBdr,
+          meanBackgroundColor:stBdr,meanBorderColor:stBdr,
+          medianColor:'#1b2a4a'}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:bpTooltip(vi.unit)},
+          scales:{
+            y:{min:bpYr.min,max:bpYr.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
+               title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+            x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}
+          }}
+      });
+    }catch(e){
+      console.warn('Monthly boxplot failed (plugin may not be loaded):', e);
+      const el=document.getElementById('c_monthly_bp');
+      if(el)el.parentElement.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">Boxplot unavailable — check CDN connection</div>';
+    }
+
+    charts.daily=new Chart(document.getElementById('c_daily'),{
+      type:'bar',
+      data:{labels:dMidLabels,datasets:[{data:dData,backgroundColor:dayBarColors(allDays),borderRadius:0,barPercentage:1,categoryPercentage:1}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{title:ctx=>allDays[ctx[0].dataIndex],label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${vi.unit}`}}},
+        scales:{
+          y:{min:getYRange(activeVar,'detail').min,max:getYRange(activeVar,'detail').max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+          x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0,autoSkip:false,callback(v,i){return dMidLabels[i]||''}}}
+        }}});
+
+    if(compView==='box'){
+      try{
+        const boxData=allSids.map(s=>Object.values(WS.daily[s]||{}).map(d=>d[dk]).filter(v=>v!=null));
+        const selColor=allSids.map(s=>s===activeStation?vi.color:(WS.stations[s]?.typeGroup==='Roof'?'rgba(210,140,110,0.55)':'rgba(134,178,120,0.55)'));
+        const selBdr=allSids.map(s=>s===activeStation?vi.color:(WS.stations[s]?.typeGroup==='Roof'?'#9a4030':'#4a7a38'));
+        charts.compare=new Chart(document.getElementById('c_compare'),{
+          type:'boxplot',data:{labels:nums,datasets:[{data:boxData,
+            backgroundColor:selColor,borderColor:selBdr,borderWidth:1.2,
+            barPercentage:0.5,categoryPercentage:0.7,
+            outlierRadius:1.5,outlierBackgroundColor:'#94a3b8',
+            meanBackgroundColor:selBdr,meanBorderColor:selBdr,medianColor:'#1b2a4a'}]},
+          options:{responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:{callbacks:{
+              title:ctx=>allSids[ctx[0].dataIndex],
+              ...bpTooltip(vi.unit).callbacks
+            }}},
+            scales:{y:{min:getYRange(activeVar,'detail').min,max:getYRange(activeVar,'detail').max,
+              grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
+              x:{grid:{display:false},title:{display:true,text:'Weather Station Code',font:{size:10},color:'#64748b'},
+                ticks:{font:{size:8},maxRotation:45,color:ctx=>wsTypes[ctx.index]==='Roof'?'#c62828':wsTypes[ctx.index]==='Roof-3axis'?'#7b1fa2':'#374151'}}}}
+        });
+      }catch(e){ console.warn('Comparison boxplot failed:',e); }
+    } else {
+      charts.compare=new Chart(document.getElementById('c_compare'),{
+        type:'bar',data:{labels:nums,datasets:[{data:cData,
+          backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
+          borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+          borderWidth:2,borderRadius:3}]},
+        options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
+    }
+
+    makeYearCmpChart('c_years',sid,activeVar,dk,0);
+
+  } else {
+    // Monthly
+    const moDays=Object.keys(WS.daily[sid]||{}).sort().filter(d=>+d.slice(5,7)===ms);
+    const dData=moDays.map(d=>WS.daily[sid][d]?.[dk]??null);
+    const dLabels=moDays.map(d=>d.slice(8));
+    const dColors=dLabels.map((_,i)=>i%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)');
+    const cData=allSids.map(s=>WS.monthly[s]?.[ms]?.[dk]??null);
+
+    cont.innerHTML=`${toggleHtml}
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — ${MONTHS[ms-1]} Daily</div>
+        <div class="chart-sub">${sid} · ${MONTHS[ms-1]} ${activeYear}</div>
+        <div class="chart-wrap" style="height:155px"><canvas id="c_modays"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">${vi.label} — Station Comparison (${MONTHS[ms-1]})</div>
+        <div class="chart-sub">All stations · ${sid} highlighted</div>
+        <div class="chart-wrap" style="height:170px"><canvas id="c_compare"></canvas></div>
+        ${COMPARE_LEGEND}
+      </div>
+      ${yearCmpCardHtml('c_years_mo',sid,activeVar,ms)}`;
+
+    const moDayOpts=chartOpts(vi.unit,getYRange(activeVar,'detail'));
+    moDayOpts.scales.x.title={display:true,text:'Days of the Month',font:{size:9},color:'#64748b'};
+    charts.modays=new Chart(document.getElementById('c_modays'),{
+      type:'bar',data:{labels:dLabels,datasets:[{data:dData,backgroundColor:dColors,borderRadius:3}]},
+      options:moDayOpts});
+
+    charts.compare=new Chart(document.getElementById('c_compare'),{
+      type:'bar',data:{labels:nums,datasets:[{data:cData,
+        backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
+        borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+        borderWidth:2,borderRadius:3}]},
+      options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
+
+    makeYearCmpChart('c_years_mo',sid,activeVar,dk,ms);
+  }
+}
+
+function setDn(mode){
+  if(mode==='hm' && dnMode==='hm') mode='a'; // toggle heatmap off
+  dnMode=mode;
+  const ms=+document.getElementById('monthSel').value;
+  if(homeVisible)return;
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
+  if(!activeStation)return;
+  const cont=document.getElementById('mainContent');
+  if(activeVar==='Wind')renderWind(cont,ms);
+  else if(activeVar!=='Overall')renderCharts(cont,ms);
+}
+
+// ── WIND TAB ───────────────────────────────────────────────────────────────
+function renderWind(cont,ms){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const sid=activeStation,isAnnual=ms===0;
+  const effectiveDn=dnMode==='hm'?'a':dnMode; // heatmap mode isn't available on the Wind tab
+  const vi=VARS['WindSpeed'],dk=getDataKey('WindSpeed',effectiveDn);
+  const yr=yRangeCache['WindSpeed'];
+  const allSids=Object.keys(WS.stations).sort();
+  const nums=allSids.map(s=>s.replace('WS',''));
+  const wsTypes=allSids.map(s=>WS.stations[s]?.type);
+
+  // Wind rose data by mode
+  function getWrData(){
+    const suffix=effectiveDn==='a'?'':effectiveDn==='d'?'_d':'_n';
+    if(isAnnual) return WR[`wr_annual${suffix}`]?.[sid];
+    return WR[`wr_monthly${suffix}`]?.[sid]?.[String(ms)];
+  }
+
+  // Chart data
+  const mData=Array.from({length:12},(_,i)=>WS.monthly[sid]?.[i+1]?.[dk]??null);
+  const allDays=Object.keys(WS.daily[sid]||{}).sort();
+  const moData=ms>0?allDays.filter(d=>+d.slice(5,7)===ms).map(d=>WS.daily[sid][d]?.[dk]??null):null;
+  const moLabels=ms>0?allDays.filter(d=>+d.slice(5,7)===ms).map(d=>d.slice(8)):null;
+  const cData=allSids.map(s=>{
+    const vals=Array.from({length:12},(_,i)=>WS.monthly[s]?.[i+1]?.[dk]).filter(v=>v!=null);
+    return vals.length?+(vals.reduce((a,b)=>a+b)/vals.length).toFixed(2):null;
+  });
+
+  cont.innerHTML=`
+    ${qcBannerHtml(sid)}
+    <div class="toggle-row">
+      <label>Period:</label>
+      <button class="dn-btn ${effectiveDn==='a'?'active':''}" onclick="setDn('a')">All Day</button>
+      <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
+      <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Wind Speed — ${isAnnual?'Monthly Average':'Daily ('+MONTHS[ms-1]+')'}</div>
+      <div class="chart-sub">${sid}</div>
+      <div class="chart-wrap" style="height:140px"><canvas id="c_wspeed"></canvas></div>
+    </div>
+    ${isAnnual?`
+    <div class="chart-card">
+      <div class="chart-title">Wind Speed — Monthly Distribution</div>
+      <div class="chart-sub">${sid} · Box = daily values per month</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c_wbp"></canvas></div>
+    </div>`:''}
+    <div class="chart-card">
+      <div class="chart-title">Wind Speed — Station Comparison</div>
+      <div class="chart-sub">Annual average · ${sid} highlighted</div>
+      <div class="chart-wrap" style="height:160px"><canvas id="c_wcompare"></canvas></div>
+      ${COMPARE_LEGEND}
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Wind Rose — ${isAnnual?'Annual':MONTHS[ms-1]} · ${sid} · ${effectiveDn==='a'?'All Day':effectiveDn==='d'?'Daytime':'Nighttime'}</div>
+      <div class="chart-sub">16 direction bins · Speed-binned frequency</div>
+      <div class="wr-compact" id="wrCompact">
+        <canvas id="wr_canvas"></canvas>
+        <div class="wr-legend-v">
+          <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase">Wind Speed</div>
+          ${WR_LABELS.map((l,i)=>`<div class="wr-leg-item"><div class="wr-leg-swatch" style="background:${WR_COLORS[i]}"></div>${l}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${yearCmpCardHtml('c_wyears',sid,'WindSpeed',isAnnual?0:ms)}`;
+
+  // Speed charts
+  if(isAnnual){
+    charts.wspeed=new Chart(document.getElementById('c_wspeed'),{
+      type:'bar',data:{labels:MONTHS,datasets:[{data:mData,backgroundColor:monthBarColors(MONTHS),borderRadius:3}]},
+      options:chartOpts('m/s',yr)});
+  } else {
+    charts.wspeed=new Chart(document.getElementById('c_wspeed'),{
+      type:'bar',data:{labels:moLabels,datasets:[{data:moData,backgroundColor:moLabels.map((_,i)=>i%2===0?'rgba(27,42,74,.78)':'rgba(100,116,139,.65)'),borderRadius:3}]},
+      options:chartOpts('m/s',yr)});
+  }
+
+  // Wind annual boxplot
+  if(isAnnual && document.getElementById('c_wbp')){
+    try{
+      const wbpData=MONTHS.map((_,i)=>{
+        const m=i+1;
+        return Object.keys(WS.daily[sid]||{}).filter(d=>+d.slice(5,7)===m)
+          .map(d=>WS.daily[sid][d]?.[dk]).filter(v=>v!=null);
+      });
+      const wColor=WS.stations[sid]?.typeGroup==='Roof'?'rgba(210,140,110,0.65)':'rgba(134,178,120,0.65)';
+      const wBdr =WS.stations[sid]?.typeGroup==='Roof'?'#9a4030':'#4a7a38';
+      charts.wbp=new Chart(document.getElementById('c_wbp'),{
+        type:'boxplot',
+        data:{labels:MONTHS,datasets:[{data:wbpData,backgroundColor:wColor,borderColor:wBdr,
+          borderWidth:1.2,barPercentage:0.5,categoryPercentage:0.7,
+          outlierRadius:2,outlierBackgroundColor:wBdr,
+          meanBackgroundColor:wBdr,meanBorderColor:wBdr,medianColor:'#1b2a4a'}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:bpTooltip('m/s')},
+          scales:{y:{min:0,max:4,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:'m/s',font:{size:10},color:'#64748b'}},
+                  x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}}}
+      });
+    }catch(e){console.warn('Wind boxplot failed:',e);}
+  }
+
+  charts.wcompare=new Chart(document.getElementById('c_wcompare'),{
+    type:'bar',data:{labels:nums,datasets:[{data:cData,
+      backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
+      borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+      borderWidth:2,borderRadius:3}]},
+    options:compareOpts('m/s',yr,wsTypes)});
+
+  makeYearCmpChart('c_wyears',sid,'WindSpeed',dk,isAnnual?0:ms);
+
+  // Draw wind rose compact
+  const __drawWr=()=>{
+    const box=document.getElementById('wrCompact'), canvas=document.getElementById('wr_canvas');
+    if(!box||!canvas) return;
+    const cardW=box.offsetWidth;
+    if(window.__mLite){
+      const rp=document.getElementById('rightPanel'), cap=document.documentElement.classList.contains('m-land')?Math.max(200,rp.clientHeight-40):320;
+      const sz=Math.max(180,Math.min(cardW-8,cap)), d=Math.min(window.devicePixelRatio||1,3);
+      canvas.style.width=sz+'px'; canvas.style.height=sz+'px';
+      canvas.width=Math.round(sz*d); canvas.height=Math.round(sz*d);
+    } else {
+      const sz=Math.min(Math.max(cardW-140,192),312);
+      canvas.width=sz; canvas.height=sz;
+    }
+    const wrData=getWrData();
+    if(wrData)drawWindRose('wr_canvas',wrData);
+  };
+  window.__wrRedraw=window.__mLite?__drawWr:null;
+  requestAnimationFrame(__drawWr);
+}
+
+// ── TREE CANOPY / TCM-SVI TAB ───────────────────────────────────────────────
+const TCM_CMAPS={
+  ghi: CMAPS.GlobalRad,
+  transmittance: ['#08306b','#2171b5','#6baed6','#c6dbef','#f7fbff']  // Blues_r, matches the matplotlib PNGs
+};
+
+// Sky-view factor per station — transcribed from tcm_charts/{id}/svf_gauge.png
+// (the value is baked into the gauge image only; not shipped as data in the export)
+const TCM_SVF={WS01:0.75,WS03:0.38,WS04:0.39,WS05:0.53,WS07:0.34,WS08:0.53,WS09:0.68,WS10:0.70,
+  WS11:0.47,WS13:0.67,WS14:0.63,WS15:0.51,WS17:0.53,WS18:0.54,WS20:0.51,WS21:0.46,WS22:0.66,
+  WS23:0.47,WS25:0.85,WS26:0.51,WS27:0.73,WS28:0.73,WS29:0.56,WS30:0.45,WS31:0.35,WS32:0.41,
+  WS33:0.38,WS34:0.50,WS36:0.61,WS39:0.47,WS40:0.55};
+const svfColor=v=>v>=0.7?'#2e7d32':v>=0.4?'#e8962e':'#c62828';  // mirrors gauge PNG colour bands
+
+function captureLabel(capture){
+  if(!capture) return '';
+  const [y,mo,d]=String(capture).split('-');
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+mo-1]||'';
+  return d?`${+d} ${M} ${y}`:`${M} ${y}`;
+}
+function captureCaptionHtml(rec){
+  const lbl=captureLabel(rec?.capture);
+  return lbl?`<div class="tcm-capture">📷 Imagery captured ${lbl} — segmentation, shade model &amp; pixel stats reflect canopy state at that date</div>`:'';
+}
+
+function tierBadgeHtml(tier){
+  const desc={STRONG:'R²≥0.85, MAE≤60 W/m² vs 2yr measured data',
+              MODERATE:'Moderate agreement with measured data — read with some caution',
+              WEAK:'Weak agreement — several WEAK-tier stations score near or below chance level'}[tier]||'';
+  const dot={STRONG:'●',MODERATE:'◐',WEAK:'○'}[tier]||'○';
+  return `<span class="tier-badge tier-${tier}" title="${desc}">${dot} ${tier} tier</span>`;
+}
+
+function photoPaths(rec,isTcm){
+  return isTcm
+    ? {real:rec.svi_photo, segmented:rec.segmentation?.segmented_full, blended:rec.segmentation?.blended}
+    : {real:rec.svi_photo, segmented:rec.segmented_full, blended:rec.blended};
+}
+
+function setCanopyPhoto(mode){
+  canopyPhotoMode=mode;
+  const img=document.getElementById('tcmPhotoImg');
+  const paths=window._canopyPhotoPaths;
+  if(img && paths && paths[mode]) img.src=TCM_BASE+paths[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+
+let sunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
+function setSunpathMode(mode){
+  sunpathMode=mode;
+  const img=document.getElementById('tcmSunpathImg');
+  const p=window._sunpathPaths;
+  if(img && p && p[mode]) img.src=TCM_BASE+p[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
+}
+
+async function getTcmHourlyData(sid){
+  if(TCM_DATA_CACHE[sid]) return TCM_DATA_CACHE[sid];
+  try{
+    const d=await fetch(`${TCM_BASE}tcm_data/${sid}_hourly_month.json`).then(r=>r.json());
+    TCM_DATA_CACHE[sid]=d;
+    return d;
+  }catch(e){ console.warn('Failed to load tcm_data for',sid,e); return null; }
+}
+
+const TCM_SEG_COLORS={Sky:'#1f77b4',Structure:'#ff7f0e',Vegetation:'#2ca02c',Pavement:'#e377c2',Terrain:'#8c564b',Others:'#7f7f7f'};  // matches the matplotlib donut PNGs
+
+function renderCanopyDonut(sid,comp){
+  const el=document.getElementById('tcmDonut');
+  if(!el||!comp)return;
+  const labels=Object.keys(comp);
+  const data=labels.map(k=>+(comp[k]*100).toFixed(1));
+  charts.tcmDonut=new Chart(el,{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>TCM_SEG_COLORS[l]||'#94a3b8'),borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed}%`}}}}
+  });
+  const lg=document.getElementById('tcmDonutLegend');
+  if(lg) lg.innerHTML=labels.map(l=>`<div class="lg-row"><span class="lg-sw" style="background:${TCM_SEG_COLORS[l]||'#94a3b8'}"></span>${l} (${(comp[l]*100).toFixed(1)}%)</div>`).join('');
+}
+
+async function loadCanopyHeatmaps(sid){
+  const d=await getTcmHourlyData(sid);
+  // Bail if the user switched stations/tabs while this fetch was in flight — avoids painting
+  // a stale station's data into a same-id canvas that now belongs to a different station.
+  if(!d || sid!==activeStation || activeVar!=='Canopy' || !document.getElementById('tcmHmTrans'))return;
+  // Collapse the multi-year record to 12 calendar months (mean across years):
+  // clear-sky geometry + a fixed canopy photo repeat identically every year.
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const grid=[], monthly=[];
+  for(let m=1;m<=12;m++){
+    const rows=d.months.filter(k=>+k.slice(5,7)===m).map(k=>d.transmittance_tcm?.[k]||[]);
+    const row=Array.from({length:24},(_,h)=>{
+      const vals=rows.map(r=>r[h]).filter(v=>v!=null);
+      return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+    });
+    grid.push(row);
+    const day=row.slice(7,20).filter(v=>v!=null);
+    monthly.push(day.length?+(day.reduce((a,b)=>a+b,0)/day.length).toFixed(3):null);
+  }
+  requestAnimationFrame(()=>{
+    drawHeatmapNew('tcmHmTrans', grid, TCM_CMAPS.transmittance, MON, {min:0,max:1}, 'tcmHmTransCb', '', [0,0.25,0.5,0.75,1], 7, 19, 0.45);
+    const bar=document.getElementById('tcmShadeMonth');
+    if(bar){
+      charts.tcmShadeMonth=new Chart(bar,{
+        type:'bar',
+        data:{labels:Array.from({length:12},(_,i)=>String(i+1)),
+          datasets:[{data:monthly,backgroundColor:'#43a047',borderRadius:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          scales:{y:{min:0,max:1,ticks:{font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:9}}}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Month '+c[0].label,label:c=>`Mean transmittance: ${c.parsed.y}`}}}}
+      });
+    }
+  });
+}
+
+function canopyPhotoToggleHtml(){
+  return `<div class="tcm-photo-toggle">
+    <button class="tcm-photo-btn ${canopyPhotoMode==='real'?'active':''}" data-mode="real" onclick="setCanopyPhoto('real')">📷 Real</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='segmented'?'active':''}" data-mode="segmented" onclick="setCanopyPhoto('segmented')">🗺 Segmented</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='blended'?'active':''}" data-mode="blended" onclick="setCanopyPhoto('blended')">🩻 Blended</button>
+  </div>`;
+}
+
+function renderCanopyTcmBlock(sid,rec,valRec,excluded){
+  const photos=photoPaths(rec,true);
+  window._canopyPhotoPaths=photos;
+  const chartsMap=rec.tcm_charts||{};
+  const svf=TCM_SVF[sid];
+  const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
+  window._sunpathPaths=sunpaths;
+
+  return `
+    ${excluded?`<div class="tcm-banner tcm-banner-excluded">
+      <b>⚠ Excluded from the validated set.</b> ${rec.exclusion_reason||'Reason not recorded.'}<br>
+      Shown for transparency only — do not read these numbers with the same trust as a normal station.
+    </div>`:''}
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+        <div class="tcm-photo-rel">
+          ${canopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+        </div>
+        ${captureCaptionHtml(rec)}
+      </div>
+      <div class="tcm-col-stack">
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+            <div class="tcm-legend" id="tcmDonutLegend"></div>
+          </div>
+        </div>
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img">${rec.segmentation?.svf_overlay?`<img src="${TCM_BASE+rec.segmentation.svf_overlay}" alt="${sid} sky-view fisheye"/>`:''}</div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">Sky View Factor (SVF)</div>
+            <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
+            <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Annual sun path — canopy transmittance</div>
+        <div class="tcm-photo-rel">
+          <div class="tcm-photo-toggle">
+            <button class="tcm-photo-btn ${sunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setSunpathMode('photo')">📷 RGB</button>
+            <button class="tcm-photo-btn ${sunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setSunpathMode('seg')">🗺 TCM</button>
+          </div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" src="${TCM_BASE+(sunpaths[sunpathMode]||sunpaths.photo||'')}" alt="${sid} sun path overlay"/></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">How to read this</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
+          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        </div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      <div class="hm-card" style="margin-bottom:0">
+        <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="tcmHmTrans"></canvas></div>
+          <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="tcmHmTransCb"></canvas></div>
+        </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);margin-top:8px"><b>Reading the chart:</b> each cell shows how much sunlight the canopy lets through at that hour and month — light = open sun, dark = shaded. As a rough guide, full sun in Singapore delivers ~900–1,000 W/m² around midday on a clear day, so a cell at 0.5 would pass roughly half of that; morning and evening sun carries much less (~100–300 W/m²) even unshaded. Values assume clear sky — clouds reduce actual radiation further.</div>
+      </div>
+      <div class="tcm-col-stack">
+        ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${TCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${sid} shade by hour"/></div>`:''}
+        <div class="chart-card" style="margin-bottom:0;flex:1">
+          <div class="chart-title">Shade by month</div>
+          <div class="chart-sub">Mean daytime transmittance (7–19h) · lower = more shaded</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="tcmShadeMonth"></canvas></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCanopySviOnlyBlock(sid,rec){
+  const photos=photoPaths(rec,false);
+  window._canopyPhotoPaths=photos;
+  return `
+    <div class="tcm-banner tcm-banner-info">
+      <b>${sid} is a ${rec.type==='Roof'?'roof':rec.type} reference station</b> — not part of the tree-shade model (TCM only models ground-level stations). Segmentation imagery below is from the SVI showcase, shown for reference only.
+    </div>
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
+        <div class="tcm-photo-rel">
+          ${canopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+        </div>
+        ${captureCaptionHtml(rec)}
+      </div>
+      <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+        <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+        <div class="tcm-circle-info">
+          <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+          <div class="tcm-legend" id="tcmDonutLegend"></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderCanopy(cont,sid){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+
+  if(!TCM || !SVI || !TCMVALID){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load — S3 unreachable and no local TCM/ fallback found (check the browser console).</div></div>`;
+    return;
+  }
+
+  const tcmRec=TCM[sid], sviRec=SVI[sid], valRec=TCMVALID[sid];
+
+  if(!sviRec){
+    const reasons={
+      WS16:'No street-view panorama was ever captured at this roof station — its dependent ground station (WS17) runs on a roof reference that has never been directly verified.',
+      WS38:'Excluded: confirmed pyranometer fault, and the panorama on file was captured at the wrong physical location. Not usable until both are fixed.'
+    };
+    cont.innerHTML=`<div class="tcm-banner tcm-banner-info">
+      <b>No canopy / segmentation data for ${sid}.</b><br>${reasons[sid]||'No SVI photo or TCM model output exists for this station.'}
+    </div>`;
+    return;
+  }
+
+  const isTcmStation=!!tcmRec;
+  const excluded=isTcmStation && tcmRec.excluded===true;
+
+  cont.innerHTML = isTcmStation
+    ? renderCanopyTcmBlock(sid,tcmRec,valRec,excluded)
+    : renderCanopySviOnlyBlock(sid,sviRec);
+
+  renderCanopyDonut(sid, isTcmStation?tcmRec.pixel_composition:sviRec.pixel_composition);
+  if(isTcmStation) loadCanopyHeatmaps(sid);
+}
+
+// ── GREENERY CANOPY TAB ─────────────────────────────────────────────────────
+// Same idea as the WS network's Canopy tab, adapted for the greenery (GSxx)
+// manifest: no validation tier (no pyranometer at these sites), svf_mean is
+// shipped directly instead of a hardcoded lookup, and there's no per-station
+// hourly JSON export — the transmittance heatmap is the static PNG, not an
+// interactive canvas.
+function grPhotoPaths(rec){
+  return {real:rec.svi_photo, segmented:rec.segmentation?.segmented_full, blended:rec.segmentation?.blended};
+}
+function setGrCanopyPhoto(mode){
+  canopyPhotoMode=mode;
+  const img=document.getElementById('grTcmPhotoImg');
+  const paths=window._grCanopyPhotoPaths;
+  if(img && paths && paths[mode]) img.src=GTCM_BASE+paths[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
+}
+let grSunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
+function setGrSunpathMode(mode){
+  grSunpathMode=mode;
+  const img=document.getElementById('grTcmSunpathImg');
+  const p=window._grSunpathPaths;
+  if(img && p && p[mode]) img.src=GTCM_BASE+p[mode];
+  document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
+}
+function grCanopyPhotoToggleHtml(){
+  return `<div class="tcm-photo-toggle">
+    <button class="tcm-photo-btn ${canopyPhotoMode==='real'?'active':''}" data-mode="real" onclick="setGrCanopyPhoto('real')">📷 Real</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='segmented'?'active':''}" data-mode="segmented" onclick="setGrCanopyPhoto('segmented')">🗺 Segmented</button>
+    <button class="tcm-photo-btn ${canopyPhotoMode==='blended'?'active':''}" data-mode="blended" onclick="setGrCanopyPhoto('blended')">🩻 Blended</button>
+  </div>`;
+}
+
+async function getGrTcmHourlyData(gsId){
+  if(GTCM_DATA_CACHE[gsId]) return GTCM_DATA_CACHE[gsId];
+  try{
+    const d=await fetch(`${GTCM_BASE}tcm_data/${gsId}_hourly_month.json`).then(r=>r.json());
+    GTCM_DATA_CACHE[gsId]=d;
+    return d;
+  }catch(e){ console.warn('Failed to load greenery tcm_data for',gsId,e); return null; }
+}
+
+// Unlike the WS network (which averages ~28 real year-month keys across replicate
+// years client-side), the greenery export is already collapsed server-side to one
+// representative 12-month cycle (m15_export_greenery_hourly_json.py) — so this just
+// reads the 12 months straight through, no further averaging needed.
+async function loadGreeneryCanopyHeatmaps(gid){
+  const gsId=gidToGsId(gid);
+  const d=await getGrTcmHourlyData(gsId);
+  if(!d || gid!==activeGreenery || activeVar!=='Canopy' || !document.getElementById('grTcmHmTrans'))return;
+  const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const grid=d.months.map(m=>d.transmittance_tcm[m]);
+  const monthly=d.months.map(m=>{
+    const day=(d.transmittance_tcm[m]||[]).slice(7,20).filter(v=>v!=null);
+    return day.length?+(day.reduce((a,b)=>a+b,0)/day.length).toFixed(3):null;
+  });
+  requestAnimationFrame(()=>{
+    drawHeatmapNew('grTcmHmTrans', grid, TCM_CMAPS.transmittance, MON, {min:0,max:1}, 'grTcmHmTransCb', '', [0,0.25,0.5,0.75,1], 7, 19, 0.45);
+    const bar=document.getElementById('grTcmShadeMonth');
+    if(bar){
+      charts.grTcmShadeMonth=new Chart(bar,{
+        type:'bar',
+        data:{labels:Array.from({length:12},(_,i)=>String(i+1)),
+          datasets:[{data:monthly,backgroundColor:'#43a047',borderRadius:2}]},
+        options:{responsive:true,maintainAspectRatio:false,
+          scales:{y:{min:0,max:1,ticks:{font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:9}}}},
+          plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>'Month '+c[0].label,label:c=>`Mean transmittance: ${c.parsed.y}`}}}}
+      });
+    }
+  });
+}
+
+function renderGreeneryCanopy(cont,gid){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+  const gsId=gidToGsId(gid);
+
+  if(!GTCM){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">Greenery TCM/SVI data did not load — S3 unreachable and no local GREENERY_TCM/ fallback found (check the browser console).</div></div>`;
+    return;
+  }
+
+  const rec=GTCM[gsId];
+  if(!rec){
+    cont.innerHTML=`<div class="tcm-banner tcm-banner-info">
+      <b>No canopy / segmentation data for ${gid}.</b><br>No street-view panorama was captured at this greenery site — it was skipped during the TCM/SVI shoot.
+    </div>`;
+    return;
+  }
+
+  const photos=grPhotoPaths(rec);
+  window._grCanopyPhotoPaths=photos;
+  const chartsMap=rec.tcm_charts||{};
+  const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
+  window._grSunpathPaths=sunpaths;
+  const svf=rec.svf_mean;
+
+  cont.innerHTML=`
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Street-view panorama &amp; segmentation — ${gid}</div>
+        <div class="tcm-photo-rel">
+          ${grCanopyPhotoToggleHtml()}
+          <div class="tcm-photo-wrap"><img id="grTcmPhotoImg" src="${GTCM_BASE+(photos[canopyPhotoMode]||photos.real||'')}" alt="${gid} panorama"/></div>
+        </div>
+      </div>
+      <div class="tcm-col-stack">
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img"><div class="tcm-donut-wrap"><canvas id="tcmDonut"></canvas></div></div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">SVI Segmentation (Pixel Ratio)</div>
+            <div class="tcm-legend" id="tcmDonutLegend"></div>
+          </div>
+        </div>
+        <div class="chart-card tcm-circle-card" style="margin-bottom:0">
+          <div class="tcm-circle-img">${chartsMap.svf_gauge?`<img src="${GTCM_BASE+chartsMap.svf_gauge}" alt="${gid} sky-view factor gauge"/>`:''}</div>
+          <div class="tcm-circle-info">
+            <div class="chart-title">Sky View Factor (SVF)</div>
+            <div class="tcm-svf-num" style="color:${svf!=null?svfColor(svf):'var(--text)'}">${svf!=null?svf.toFixed(2):'—'}</div>
+            <div class="tcm-svf-lbl">fraction of sky visible from the station<br>(1 = fully open, 0 = fully blocked)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Annual sun path — canopy transmittance</div>
+        <div class="tcm-photo-rel">
+          <div class="tcm-photo-toggle">
+            <button class="tcm-photo-btn ${grSunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setGrSunpathMode('photo')">📷 RGB</button>
+            <button class="tcm-photo-btn ${grSunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setGrSunpathMode('seg')">🗺 TCM</button>
+          </div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" src="${GTCM_BASE+(sunpaths[grSunpathMode]||sunpaths.photo||'')}" alt="${gid} sun path overlay"/></div>
+        </div>
+      </div>
+      <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">How to read this</div>
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
+          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+          <br><br>
+          This site has no pyranometer, so its shade estimate hasn't been checked against measured solar radiation on the ground here. The same modeling approach has been validated at the WS network's 31 ground stations, which do carry pyranometers — canopy-adjusted transmittance tracked measured solar radiation well at most of those stations (agreement varied by site), supporting its use as a reasonable proxy for ground-level solar radiation at greenery sites like this one.
+        </div>
+      </div>
+    </div>
+
+    <div class="tcm-2col">
+      <div class="hm-card" style="margin-bottom:0">
+        <div class="hm-title">Canopy transmittance <span style="font-weight:400;color:var(--muted)">(0 = full shade, 1 = no shade)</span></div>
+        <div class="chart-sub" style="margin-bottom:6px">Hour × month, daytime 7–19h</div>
+        <div class="hm-body">
+          <div class="hm-canvas-wrap"><canvas id="grTcmHmTrans"></canvas></div>
+          <div class="hm-colorbar"><div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">0–1</div><canvas id="grTcmHmTransCb"></canvas></div>
+        </div>
+        <div style="font-size:11px;line-height:1.6;color:var(--muted);margin-top:8px"><b>Reading the chart:</b> each cell shows how much sunlight the canopy lets through at that hour and month — light = open sun, dark = shaded. As a rough guide, full sun in Singapore delivers ~900–1,000 W/m² around midday on a clear day, so a cell at 0.5 would pass roughly half of that; morning and evening sun carries much less (~100–300 W/m²) even unshaded. Values assume clear sky — clouds reduce actual radiation further.</div>
+      </div>
+      <div class="tcm-col-stack">
+        ${chartsMap.hourly_shade_profile?`<div class="chart-card" style="margin-bottom:0"><div class="chart-title">Shade by hour of day</div><img src="${GTCM_BASE+chartsMap.hourly_shade_profile}" style="width:100%;border-radius:6px" loading="lazy" alt="${gid} shade by hour"/></div>`:''}
+        <div class="chart-card" style="margin-bottom:0;flex:1">
+          <div class="chart-title">Shade by month</div>
+          <div class="chart-sub">Mean daytime transmittance (7–19h) · lower = more shaded</div>
+          <div class="chart-wrap" style="height:140px"><canvas id="grTcmShadeMonth"></canvas></div>
+        </div>
+      </div>
+    </div>
+    ${chartsMap.seasonal_transmittance?`<div class="chart-card"><div class="chart-title">Seasonal transmittance</div><img src="${GTCM_BASE+chartsMap.seasonal_transmittance}" style="width:100%;max-width:640px;border-radius:6px" loading="lazy" alt="${gid} seasonal transmittance"/></div>`:''}
+  `;
+
+  renderCanopyDonut(gsId, rec.pixel_composition);
+  loadGreeneryCanopyHeatmaps(gid);
+}
+
+// ── Boxplot tooltip helper ────────────────────────────────────────────────
+function bpTooltip(unit){
+  return {callbacks:{label:ctx=>{
+    const r=ctx.raw; if(!r)return '';
+    const fmt=v=>(v!=null&&!isNaN(+v))?Number(v).toFixed(1):'N/A';
+    let med,q1,q3,mean;
+    if(Array.isArray(r)){
+      const s=[...r].filter(v=>v!=null).sort((a,b)=>a-b); const n=s.length;
+      med=s[Math.floor(n*0.5)]; q1=s[Math.floor(n*0.25)]; q3=s[Math.floor(n*0.75)];
+      mean=s.reduce((a,b)=>a+b)/n;
+    } else { med=r.median??r.q2; q1=r.q1; q3=r.q3; mean=r.mean; }
+    return [`Median: ${fmt(med)} ${unit}`,`Mean: ${fmt(mean)} ${unit}`,`IQR: ${fmt(q1)}–${fmt(q3)}`];
+  }}};
+}
+
+// ── Per-chart Y-range ─────────────────────────────────────────────────────
+function getYRange(v, chartType='detail'){
+  if(v==='AirTemp'){
+    return chartType==='avg' ? {min:22,max:32} : {min:22,max:36};
+  }
+  if(v==='GlobalRad'){
+    return chartType==='avg' ? {min:0,max:600} : {min:0,max:800};
+  }
+  return yRangeCache[v]||{min:0,max:100};
+}
+
+// ── Box stats helper ──────────────────────────────────────────────────────
+function boxStats(vals){
+  const s=[...vals].filter(v=>v!=null&&!isNaN(v)).sort((a,b)=>a-b);
+  if(!s.length)return null;
+  const n=s.length;
+  const q=p=>s[Math.min(Math.floor(p*n),n-1)];
+  return {min:s[0],q1:q(0.25),median:q(0.5),q3:q(0.75),max:s[n-1],
+          mean:s.reduce((a,b)=>a+b,0)/n, items:s};
+}
+
+// ── OVERALL (heatmaps or boxplot, with sub-tabs) ───────────────────────────
+function setOverallSub(v){ overallSubView=v; const ms=+document.getElementById('monthSel').value; renderOverall(document.getElementById('mainContent'),ms); }
+
+function renderOverall(cont,ms){
+  const isAnnual=ms===0;
+  const hmVars=['AirTemp','RelHum','WindSpeed','GlobalRad'];
+  // Sub-tab row
+  cont.innerHTML=`
+    <div class="sub-tabs">
+      <button class="sub-tab ${overallSubView==='boxplot'?'active':''}" onclick="setOverallSub('boxplot')">📊 Boxplot</button>
+      <button class="sub-tab ${overallSubView==='canopy'?'active':''}" onclick="setOverallSub('canopy')">🌳 Canopy / Shade — Network</button>
+    </div>
+    <div id="overallContent"></div>`;
+  const oc=document.getElementById('overallContent');
+  if(overallSubView==='boxplot') { renderBoxplotAll(oc); return; }
+  if(overallSubView==='canopy')  { renderCanopyNetworkOverview(oc); return; }
+
+  // ── existing heatmap rendering (moved here) ─────────────────────────────
+
+  cont.innerHTML=`
+    ${qcBannerHtml(activeStation)}
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">
+      ${isAnnual?'ANNUAL — Y: Month · X: Hour of Day':MONTHS[ms-1].toUpperCase()+' — Y: Day · X: Hour of Day'} · ${activeYear}
+    </div>
+    <div id="hmContainer" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>`;
+
+  const container=document.getElementById('hmContainer');
+  hmVars.forEach(v=>{
+    const vi=VARS[v];
+    const card=document.createElement('div');
+    card.className='hm-card';
+    card.innerHTML=`
+      <div class="hm-title">${vi.label} <span style="font-weight:400;color:var(--muted)">(${vi.unit})</span></div>
+      <div class="hm-body">
+        <div class="hm-canvas-wrap"><canvas id="hm_${v}"></canvas></div>
+        <div class="hm-colorbar">
+          <div style="font-size:9px;color:#64748b;margin-bottom:3px;font-weight:600">${vi.unit}</div>
+          <canvas id="hm_cb_${v}"></canvas>
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+
+  requestAnimationFrame(()=>{
+    hmVars.forEach(v=>{
+      const vi=VARS[v];
+      let data2d, yLabels, nCols=24, nRows;
+
+      if(isAnnual){
+        // data[hour][month_index 0-11] → display X=hour, Y=month
+        const raw=HM.annual_heat[activeStation]?.[v]?.['a'];
+        nRows=12; yLabels=MONTHS;
+        // transpose: data2d[yIdx=month][xIdx=hour] = raw[hour][month]
+        data2d=Array.from({length:12},(_,m)=>Array.from({length:24},(_,h)=>raw?.[h]?.[m]??null));
+      } else {
+        const dim=(ms===2&&activeYear%4===0)?29:DAYS_IN_M[ms-1]; // leap-year Feb (2024)
+        const raw=HM.monthly_heat[activeStation]?.[String(ms)]?.[v];
+        nRows=dim; yLabels=Array.from({length:dim},(_,i)=>i+1);
+        // data2d[yIdx=day][xIdx=hour] = raw[hour][day_index=0..30]
+        data2d=Array.from({length:dim},(_,d)=>Array.from({length:24},(_,h)=>raw?.[h]?.[d]??null));
+      }
+
+      const hmRange=hmRangeCache[v]||{min:0,max:100};
+      const sH = (v==='GlobalRad') ? 6  : 0;
+      const eH = (v==='GlobalRad') ? 20 : 23;
+      drawHeatmapNew(`hm_${v}`,data2d,vi.cmap,yLabels,hmRange,`hm_cb_${v}`,vi.unit,vi.cbTicks,sH,eH);
+    });
+  });
+}
+
+// ── BOXPLOT: All stations, Ground vs Roof ─────────────────────────────────
+function renderBoxplotAll(cont){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+
+  const allSids=Object.keys(WS.stations).sort();
+  const groundSids=allSids.filter(s=>WS.stations[s].typeGroup==='Ground');
+  const roofSids  =allSids.filter(s=>WS.stations[s].typeGroup==='Roof');
+
+  const hmVars=['AirTemp','RelHum','WindSpeed','GlobalRad'];
+  const GND_COLOR='rgba(134,178,120,0.65)', GND_BDR='#4a7a38';
+  const ROOF_COLOR='rgba(210,140,110,0.65)', ROOF_BDR='#9a4030';
+
+  // Collect all daily values per station per variable
+  function stationVals(sid,v){
+    const dk = v==='GlobalRad'?'GlobalRad':v; // always all-day key
+    return Object.values(WS.daily[sid]||{}).map(d=>d[dk]).filter(x=>x!=null);
+  }
+
+  cont.innerHTML = hmVars.map(v=>{
+    const vi=VARS[v];
+    const isSolar=v==='GlobalRad';
+    return `<div class="chart-card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+        <div class="chart-title">${vi.label} (${vi.unit})</div>
+        ${isSolar?'<span style="font-size:10px;color:var(--muted)">Daytime only 07:00–19:00</span>':''}
+      </div>
+      <div style="display:grid;grid-template-columns:4fr 1fr;gap:6px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:${GND_BDR};margin-bottom:2px">Ground (n=${groundSids.length})</div>
+          <div style="height:130px"><canvas id="bp_g_${v}"></canvas></div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:${ROOF_BDR};margin-bottom:2px">Roof (n=${roofSids.length})</div>
+          <div style="height:130px"><canvas id="bp_r_${v}"></canvas></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const yr=yRangeCache;
+
+  hmVars.forEach(v=>{
+    const vi=VARS[v];
+    [['g',groundSids,GND_COLOR,GND_BDR],['r',roofSids,ROOF_COLOR,ROOF_BDR]].forEach(([grp,sids,bgc,bdc])=>{
+      const labels=sids.map(s=>s.replace('WS',''));
+      const data=sids.map(s=>stationVals(s,v));
+
+      // Compute group mean for reference line
+      const allVals=data.flat();
+      const groupMean=allVals.length?allVals.reduce((a,b)=>a+b)/allVals.length:null;
+
+      const yRange=yr[v]||{min:0,max:100};
+
+      const meanLinePlugin={
+        id:'meanLine_'+grp+'_'+v,
+        afterDraw(chart){
+          if(groupMean==null)return;
+          const ctx=chart.ctx, yAxis=chart.scales.y;
+          const y=yAxis.getPixelForValue(groupMean);
+          ctx.save();
+          ctx.setLineDash([5,4]);
+          ctx.strokeStyle=bdc;
+          ctx.lineWidth=1.5;
+          ctx.beginPath();
+          ctx.moveTo(chart.chartArea.left,y);
+          ctx.lineTo(chart.chartArea.right,y);
+          ctx.stroke();
+          // label
+          ctx.setLineDash([]);
+          ctx.fillStyle=bdc;
+          ctx.font='bold 9px Segoe UI';
+          ctx.textAlign='right';
+          ctx.fillText(groupMean.toFixed(1),chart.chartArea.right-2,y-3);
+          ctx.restore();
+        }
+      };
+
+      try{ charts[`bp_${grp}_${v}`]=new Chart(document.getElementById(`bp_${grp}_${v}`),{
+        type:'boxplot',
+        plugins:[meanLinePlugin],
+        data:{
+          labels,
+          datasets:[{
+            label:vi.label,
+            data,
+            backgroundColor:bgc,
+            borderColor:bdc,
+            borderWidth:1.2,
+            barPercentage:0.5, categoryPercentage:0.7,
+            outlierRadius:2,
+            outlierBackgroundColor:bdc,
+            meanBackgroundColor:bdc,
+            meanBorderColor:bdc,
+            medianColor:'#1b2a4a',
+          }]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false},tooltip:bpTooltip(vi.unit)},
+          scales:{
+            y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},
+               ticks:{font:{size:9}},
+               title:{display:true,text:vi.unit,font:{size:9},color:'#64748b'}},
+            x:{grid:{display:false},ticks:{font:{size:8},maxRotation:0},
+               title:{display:true,text:'Station',font:{size:9},color:'#64748b'}}
+          }
+        }
+      }); }catch(e){console.warn('Boxplot failed:',e);}
+    });
+  });
+}
+
+// ── Canopy / Shade — network-wide overview (Overall tab sub-view) ─────────
+function renderCanopyNetworkOverview(cont){
+  Object.values(charts).forEach(c=>c.destroy?.());charts={};
+
+  if(!TCM || !SVI || !TCMVALID){
+    cont.innerHTML=`<div class="chart-card"><div class="chart-title">Tree Canopy / Shade data unavailable</div>
+      <div class="chart-sub">TCM/SVI data files did not load.</div></div>`;
+    return;
+  }
+
+  const sids=Object.keys(TCM).filter(k=>!k.startsWith('_')).sort();
+  const excludedSids=sids.filter(s=>TCM[s].excluded);
+  const rankChart=TCM._network_charts?.canopy_reduction_ranking;
+  const compChart=TCM._network_charts?.svi_composition_all_stations;
+
+  const rows=sids.map(sid=>{
+    const rec=TCM[sid], svf=TCM_SVF[sid];
+    return `<tr class="${rec.excluded?'excluded-row':''}">
+      <td><b>${sid}</b></td>
+      <td style="font-weight:700;color:${svf!=null?svfColor(svf):'var(--muted)'}">${svf!=null?svf.toFixed(2):'—'}</td>
+      <td>${rec.canopy_reduction_pct}%</td>
+      <td>${rec.shade_rank||'—'}</td>
+      <td style="white-space:nowrap">${captureLabel(rec.capture)||'—'}</td>
+      <td>${rec.excluded?`⚠ ${rec.exclusion_reason||'excluded'}`:'—'}</td>
+    </tr>`;
+  }).join('');
+
+  cont.innerHTML=`
+    <div class="tcm-banner tcm-banner-note">
+      <b>31 of the network's 40 ground stations are shade-modeled (TCM).</b> WS02/06/12/16/19/24/35/37 are roof reference stations (not modeled), WS38 has no valid data (sensor fault + panorama captured at the wrong location). Every number here comes from a single street-view panorama per station + solar geometry — not measurement. Imagery: ${TCM._collection?.label||'Apr 2024 / Jan 2025'}, two campaigns ~9 months apart — cross-station comparisons mix two canopy states (per-station date in the table below).
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Canopy reduction — ranked, all modeled stations</div>
+      <div class="chart-sub">% reduction in clear-sky GHI vs. open sky</div>
+      ${rankChart?`<img src="${TCM_BASE+rankChart}" style="width:100%;border-radius:6px;border:1px solid var(--border)"/>`:'<div style="color:var(--muted);font-size:11px">Chart unavailable</div>'}
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Segmentation composition — all 38 stations with SVI</div>
+      <div class="chart-sub">Ground + roof, directly comparable · divider separates the two groups</div>
+      ${compChart?`<img src="${TCM_BASE+compChart}" style="width:100%;border-radius:6px;border:1px solid var(--border)"/>`:'<div style="color:var(--muted);font-size:11px">Chart unavailable</div>'}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">${SVI._note||''}</div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Per-station summary — ${sids.length} modeled stations${excludedSids.length?`, ${excludedSids.length} excluded`:''}</div>
+      <div class="chart-sub">Sky-view factor &amp; canopy reduction from the shade model</div>
+      <div style="overflow-x:auto">
+        <table class="tcm-tier-table">
+          <thead><tr><th>Station</th><th>SVF</th><th>Canopy reduction</th><th>Shade rank</th><th>Imagery</th><th>Excluded?</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ── Heatmap: X=hour, Y=month or day, colorbar on right ────────────────────
+const hmTooltip = document.getElementById('hmTooltip');
+
+function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cbTicks, startHour=0, endHour=23, aspect=(window.__mLite?0.6:0.8)){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas||!data2d)return;
+  const ctx=canvas.getContext('2d');
+  canvas._hmArgs=[canvasId,data2d,cmap,yLabels,hmRange,cbId,unit,cbTicks,startHour,endHour,aspect];
+  // Clip to requested hour range
+  const nCols = endHour - startHour + 1;
+  const data2dClipped = data2d.map(row => row.slice(startHour, endHour + 1));
+  const nRows = data2dClipped.length;
+  // Layout
+  const PL=(window.__mLite?30:38), PB=36, PT=6, PR=6;  // PB=36 gives more gap for x-axis label
+  const W=canvas.parentElement.offsetWidth-4;
+  const plotW=W-PL-PR;
+  // default 4:5 ratio; callers can pass a smaller aspect for compact heatmaps
+  const plotH=Math.round(plotW*aspect);
+  const H=plotH+PT+PB;
+  if(window.__mLite){ const dpr=Math.min(window.devicePixelRatio||1,3); canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); }
+  else{ canvas.width=W; canvas.height=H; }
+  ctx.clearRect(0,0,W,H);
+
+  const cellW=plotW/nCols, cellH=plotH/nRows;
+  // Use cbTicks range if provided — ensures colorbar and cell colors share the same scale
+  const mn = (cbTicks && cbTicks.length) ? cbTicks[0]                    : hmRange.min;
+  const mx = (cbTicks && cbTicks.length) ? cbTicks[cbTicks.length - 1]   : hmRange.max;
+
+  function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+  function lrp(a,b,t){return a+(b-a)*t;}
+  function interpC(t){
+    const n=cmap.length-1, i=Math.min(Math.floor(t*n),n-1), f=t*n-i;
+    const[r1,g1,b1]=hexToRgb(cmap[i]),[r2,g2,b2]=hexToRgb(cmap[i+1]);
+    return `rgb(${Math.round(lrp(r1,r2,f))},${Math.round(lrp(g1,g2,f))},${Math.round(lrp(b1,b2,f))})`;
+  }
+
+  // Draw cells
+  for(let r=0;r<nRows;r++){
+    for(let c=0;c<nCols;c++){
+      const val=data2dClipped[r]?.[c];
+      ctx.fillStyle=val==null?'#f1f5f9':interpC(Math.max(0,Math.min(1,(val-mn)/(mx-mn))));
+      ctx.fillRect(PL+c*cellW, PT+r*cellH, cellW+.5, cellH+.5);
+    }
+  }
+
+  // Gridlines
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=0.5;
+  for(let r=1;r<nRows;r++){
+    ctx.beginPath();ctx.moveTo(PL,PT+r*cellH);ctx.lineTo(PL+plotW,PT+r*cellH);ctx.stroke();
+  }
+
+  // Y-axis labels: show every row for months (12), every 5th for days
+  ctx.fillStyle='#374151'; ctx.font='bold 12px Segoe UI'; ctx.textAlign='right';
+  const yStep = nRows <= 12 ? 1 : 5;
+  yLabels.forEach((lbl,i)=>{
+    // For days, show 1 then every 5th (1,5,10,15,20,25,30)
+    const show = nRows <= 12 ? true : (i===0 || (i+1)%5===0);
+    if(show){
+      ctx.fillText(String(lbl), PL-3, PT+i*cellH+cellH/2+4);
+    }
+  });
+
+  // X-axis: hour labels as "HH:00" every 2h — bigger text 2x
+  ctx.textAlign='center'; ctx.font='11px Segoe UI'; ctx.fillStyle='#374151';
+  // X tick numbers — every hour when cells are wide enough, else every 2 hours
+  const xStep=window.__mLite?((plotW/nCols)>=11?1:2):((plotW/nCols)>=44?1:2);
+  if(window.__mLite) ctx.font='10px sans-serif';
+  for(let c=0;c<nCols;c+=xStep){
+    const hr = startHour + c;
+    ctx.fillText(window.__mLite?String(hr):`${String(hr).padStart(2,'0')}:00`, PL+c*cellW+cellW/2, PT+plotH+14);
+  }
+
+  // X axis label — 10px below tick numbers
+  ctx.font='11px Segoe UI'; ctx.fillStyle='#64748b'; ctx.textAlign='center';
+  ctx.fillText(window.__mLite ? 'Hour of day (0 to 23)' : 'Hour of Day', PL+plotW/2, PT+plotH+28);
+
+  // Border
+  ctx.strokeStyle='#d1d5db'; ctx.lineWidth=.5;
+  ctx.strokeRect(PL,PT,plotW,plotH);
+
+  // Colorbar: bar on left, tick lines + labels on right (outside)
+  const cb=document.getElementById(cbId);
+  if(cb && window.__mLite){ __hmColorbarH(cb,cmap,cbTicks,mn,mx,PL,plotW,W); }
+  else if(cb){
+    const PAD=6; // top & bottom padding so edge labels aren't clipped
+    const cbH=Math.round(plotH*0.70); // 30% shorter than plot
+    const barW=12, tickLen=5, lblOff=7;
+    const totalW=barW+tickLen+36;
+    const totalH=cbH+PAD*2;
+    cb.height=totalH; cb.width=totalW;
+    const cctx=cb.getContext('2d');
+    cctx.clearRect(0,0,totalW,totalH);
+    // Gradient bar drawn with PAD offset at top
+    const grad=cctx.createLinearGradient(0,PAD+cbH,0,PAD);
+    cmap.forEach((c,i)=>grad.addColorStop(i/(cmap.length-1),c));
+    cctx.fillStyle=grad;
+    cctx.fillRect(0,PAD,barW,cbH);
+    cctx.strokeStyle='#d1d5db'; cctx.lineWidth=.5;
+    cctx.strokeRect(0,PAD,barW,cbH);
+    // Ticks mapped into the padded space
+    const tickVals = cbTicks && cbTicks.length
+      ? cbTicks
+      : [mn, mn+(mx-mn)*0.25, mn+(mx-mn)*0.5, mn+(mx-mn)*0.75, mx];
+    cctx.strokeStyle='#9ca3af'; cctx.lineWidth=1;
+    tickVals.forEach(val=>{
+      const t = Math.max(0, Math.min(1, (val - mn) / (mx - mn)));
+      const y = PAD + cbH - t * cbH;  // PAD at top, so max is at PAD, min at PAD+cbH
+      cctx.beginPath(); cctx.moveTo(barW,y); cctx.lineTo(barW+tickLen,y); cctx.stroke();
+      cctx.fillStyle='#374151'; cctx.font='9px Segoe UI'; cctx.textAlign='left';
+      const lbl = Number.isInteger(val) ? String(val) : val.toFixed(1);
+      cctx.fillText(lbl, barW+lblOff, y+3);
+    });
+  }
+
+  // ── Hover tooltip ────────────────────────────────────────────────────────
+  canvas._hmMeta = {PL, PT, cellW, cellH, nRows, nCols, startHour, yLabels, data2dClipped, unit};
+
+  // Remove previous listener before re-attaching
+  if(canvas._hmMouseMove) canvas.removeEventListener('mousemove', canvas._hmMouseMove);
+  if(canvas._hmMouseLeave) canvas.removeEventListener('mouseleave', canvas._hmMouseLeave);
+
+  canvas._hmMouseMove = function(e){
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const meta = canvas._hmMeta;
+    const col = Math.floor((mx - meta.PL) / meta.cellW);
+    const row = Math.floor((my - meta.PT) / meta.cellH);
+    if(col < 0 || col >= meta.nCols || row < 0 || row >= meta.nRows){
+      hmTooltip.style.display='none'; return;
+    }
+    const val = meta.data2dClipped[row]?.[col];
+    const hour = meta.startHour + col;
+    const yLbl = meta.yLabels[row];
+    const timeStr = `${String(hour).padStart(2,'0')}:00`;
+    const valStr = val != null ? `${val.toFixed(1)} ${meta.unit}` : 'No data';
+    hmTooltip.innerHTML = `<div style="font-weight:700;color:#7dd3fc;margin-bottom:2px">${yLbl} · ${timeStr}</div><div style="font-size:13px">${valStr}</div>`;
+    hmTooltip.style.display = 'block';
+    hmTooltip.style.left = (e.clientX + 14) + 'px';
+    hmTooltip.style.top  = (e.clientY - 10) + 'px';
+  };
+  canvas._hmMouseLeave = function(){ hmTooltip.style.display='none'; };
+  canvas.addEventListener('mousemove',  canvas._hmMouseMove);
+  canvas.addEventListener('mouseleave', canvas._hmMouseLeave);
+}
+
+// ── Wind Rose ──────────────────────────────────────────────────────────────
+function drawWindRose(canvasId,data){
+  const canvas=document.getElementById(canvasId);
+  if(!canvas||!data)return;
+  const ctx=canvas.getContext('2d');
+  const __d=window.__mLite?Math.min(window.devicePixelRatio||1,3):1, __fs=window.__mLite?1.3:1;
+  const W=canvas.width/__d,H=canvas.height/__d;
+  ctx.setTransform(__d,0,0,__d,0,0);
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2,cy=H/2,maxR=Math.min(W,H)/2-(window.__mLite?30:22);
+  const N_DIR=16,N_SPEED=4;
+  let total=0; data.forEach(r=>r.forEach(v=>total+=v));
+  if(!total)return;
+  const maxFreq=Math.max(...data.map(r=>r.reduce((a,b)=>a+b,0)));
+
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=.8;
+  [.25,.5,.75,1].forEach(r=>{
+    ctx.beginPath();ctx.arc(cx,cy,maxR*r,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#9ca3af';ctx.font=`${8*__fs}px Segoe UI`;ctx.textAlign='center';
+    ctx.fillText(`${((maxFreq*r/total)*100).toFixed(1)}%`,cx,cy-maxR*r+8);
+  });
+  ctx.strokeStyle='#e2e8f0';ctx.lineWidth=.5;
+  for(let i=0;i<N_DIR;i++){
+    const a=(i/N_DIR)*Math.PI*2-Math.PI/2;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+maxR*Math.cos(a),cy+maxR*Math.sin(a));ctx.stroke();
+  }
+  for(let di=0;di<N_DIR;di++){
+    const angle=(di/N_DIR)*Math.PI*2-Math.PI/2;
+    const half=Math.PI/N_DIR,sA=angle-half,eA=angle+half;
+    let cum=0;
+    for(let si=0;si<N_SPEED;si++){
+      const freq=data[di][si]/total;
+      const r1=(cum/(maxFreq/total))*maxR; cum+=freq;
+      const r2=(cum/(maxFreq/total))*maxR;
+      if(r2<.5)continue;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.max(0,r1)*Math.cos(sA),cy+Math.max(0,r1)*Math.sin(sA));
+      ctx.arc(cx,cy,r2,sA,eA);
+      ctx.arc(cx,cy,Math.max(0,r1),eA,sA,true);
+      ctx.closePath();
+      ctx.fillStyle=WR_COLORS[si];ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=.4;ctx.stroke();
+    }
+  }
+  DIR_LABELS.forEach((lbl,i)=>{
+    const a=(i/N_DIR)*Math.PI*2-Math.PI/2,r=maxR+14;
+    const isC=i%4===0;
+    ctx.fillStyle=isC?'#1e293b':'#9ca3af';
+    ctx.font=`${isC?'bold ':''} ${(isC?10:8)*__fs}px Segoe UI`;
+    ctx.textAlign='center';
+    ctx.fillText(lbl,cx+r*Math.cos(a),cy+r*Math.sin(a)+3);
+  });
+  ctx.fillStyle='#1b2a4a';ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fill();
+}
+
+// ── Events ────────────────────────────────────────────────────────────────
+document.querySelectorAll('.var-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.var-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); activeVar=btn.dataset.var;
+    if(compareMode){ renderActiveCompare(); return; }
+    if(activeGreenery){ showCharts(); renderGreenery(); return; }
+    if(activeStation){showCharts();renderAll();}
+  });
+});
+document.getElementById('monthSel').addEventListener('change',()=>{
+  if(homeVisible)return;
+  if(compareMode){ renderActiveCompare(); return; }
+  if(activeGreenery){ renderGreenery(); return; }
+  if(activeStation)renderAll();
+});
+
+
+loadData();
+</script>
+<script>
+/* mobile-lite helpers */
+(function(){
+  var el=document.getElementById('map');
+  if(window.ResizeObserver&&el){
+    new ResizeObserver(function(){
+      if(typeof mapInstance!=='undefined'&&mapInstance)mapInstance.invalidateSize();
+    }).observe(el);
+  }
+  window.__hmColorbarH=function(cb,cmap,cbTicks,mn,mx,PL,plotW,W){
+    var dpr=Math.min(window.devicePixelRatio||1,3),H=34,top=2,barH=10;
+    cb.width=Math.round(W*dpr);cb.height=Math.round(H*dpr);cb.style.width=W+'px';cb.style.height=H+'px';
+    var c=cb.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,W,H);
+    var g=c.createLinearGradient(PL,0,PL+plotW,0);
+    cmap.forEach(function(col,i){g.addColorStop(i/(cmap.length-1),col);});
+    c.fillStyle=g;c.fillRect(PL,top,plotW,barH);
+    c.strokeStyle='#d1d5db';c.lineWidth=.5;c.strokeRect(PL,top,plotW,barH);
+    var ticks=(cbTicks&&cbTicks.length)?cbTicks:[mn,mn+(mx-mn)*.25,mn+(mx-mn)*.5,mn+(mx-mn)*.75,mx];
+    c.font='10px sans-serif';c.fillStyle='#374151';c.strokeStyle='#9ca3af';c.lineWidth=1;
+    ticks.forEach(function(v,i){
+      var tt=Math.max(0,Math.min(1,(v-mn)/(mx-mn))),x=PL+tt*plotW;
+      c.beginPath();c.moveTo(x,top+barH);c.lineTo(x,top+barH+4);c.stroke();
+      c.textAlign=i===0?'left':(i===ticks.length-1?'right':'center');
+      c.fillText(Number.isInteger(v)?String(v):v.toFixed(1),x,top+barH+15);
+    });
+  };
+  (function(){
+    var rp=document.getElementById('rightPanel'),lastW=0,tm=null;
+    function redraw(){
+      document.querySelectorAll('canvas').forEach(function(c){
+        if(c._hmArgs&&c.isConnected){try{drawHeatmapNew.apply(null,c._hmArgs);}catch(e){console.warn('heatmap redraw failed',e);}}
+      });
+      if(window.__wrRedraw&&document.getElementById('wr_canvas')){try{window.__wrRedraw();}catch(e){console.warn('wind rose redraw failed',e);}}
+    }
+    if(window.ResizeObserver&&rp){
+      new ResizeObserver(function(){
+        var w=Math.round(rp.clientWidth);
+        if(!w||w===lastW)return;
+        lastW=w;clearTimeout(tm);tm=setTimeout(redraw,120);
+      }).observe(rp);
+    }
+  })();
+  var lb=document.getElementById('mLayersBtn'),gb=document.getElementById('mLegendBtn');
+  var lp=document.getElementById('mLayersPanel'),gp=document.getElementById('mLegendPanel');
+  var cur=null;
+  function show(w){
+    cur=w;
+    lb.classList.toggle('on',w==='layers'); lp.classList.toggle('open',w==='layers');
+    gb.classList.toggle('on',w==='legend'); gp.classList.toggle('open',w==='legend');
+  }
+  lb.addEventListener('click',function(){show(cur==='layers'?null:'layers');});
+  gb.addEventListener('click',function(){show(cur==='legend'?null:'legend');});
+  el.addEventListener('click',function(){if(cur)show(null);},true);   // tap the map to close
+  if(window.__mLite){
+    var h=document.querySelector('.panel-hdr');
+    if(h)h.textContent='\uD83D\uDCCD Tap a station';
+    var VL={AirTemp:'\uD83C\uDF21 Temp',RelHum:'\uD83D\uDCA7 Humidity',Wind:'\uD83C\uDF2C Wind',GlobalRad:'\u2600 Solar'};
+    document.querySelectorAll('.var-btn').forEach(function(b){if(VL[b.dataset.var])b.textContent=VL[b.dataset.var];});
+    var ns=document.querySelector('.no-sel div:last-child');
+    if(ns)ns.textContent='Tap any marker to explore weather data.';
+  }
+})();
+</script>
+</body>
+</html>
