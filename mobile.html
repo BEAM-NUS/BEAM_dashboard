@@ -4,6 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <meta name="theme-color" content="#a1bb22">
+<script>(function(){
+  var RE=[
+    [/^(.*?)svi\/(WS\d+)\.jpg$/,'$1m/$2/real.webp'],
+    [/^(.*?)segmentation\/(WS\d+)\/WS\d+_segmented\.png$/,'$1m/$2/segmented.webp'],
+    [/^(.*?)segmentation\/(WS\d+)\/WS\d+_blended\.png$/,'$1m/$2/blended.webp'],
+    [/^(.*?)segmentation\/(GS\d+)\/segmented\.png$/,'$1m/$2/segmented.webp'],
+    [/^(.*?)tcm_charts\/((?:WS|GS)\d+)\/sunpath_v4_rgb\.png$/,'$1m/$2/sunpath_rgb.webp'],
+    [/^(.*?)tcm_charts\/((?:WS|GS)\d+)\/sunpath_v4_tcm\.png$/,'$1m/$2/sunpath_tcm.webp']
+  ];
+  window.mMap=function(u){
+    if(!window.__mLite||!u)return null;
+    for(var i=0;i<RE.length;i++){if(RE[i][0].test(u))return u.replace(RE[i][0],RE[i][1]);}
+    return null;
+  };
+  window.mAttrs=function(u){var m=window.mMap(u);return m?('src="'+m+'" data-fb=\''+JSON.stringify([u])+'\''):('src="'+u+'"');};
+  window.mSetImg=function(img,u){var m=window.mMap(u);if(m){img.dataset.fb=JSON.stringify([u]);img.src=m;}else{img.removeAttribute('data-fb');img.src=u;}};
+  document.addEventListener('error',function(e){
+    var t=e.target;
+    if(t&&t.tagName==='IMG'&&t.dataset&&t.dataset.fb){
+      var a;try{a=JSON.parse(t.dataset.fb);}catch(x){return;}
+      var n=a.shift();
+      if(a.length)t.dataset.fb=JSON.stringify(a);else delete t.dataset.fb;
+      if(n)t.src=n;
+    }
+  },true);
+})();</script>
 <script>
 /* Mobile-lite mode: sets html.m-port (phone portrait) or html.m-land (phone landscape).
    Override for desktop testing: mobile.html?m=port  or  ?m=land */
@@ -182,6 +208,8 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tcm-photo-toggle{display:flex;gap:6px;margin-bottom:8px;}
 .tcm-photo-btn{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);}
 .tcm-photo-btn.active{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+.tcm-photo-btn.sp-ico{display:inline-flex;align-items:center;justify-content:center;padding:4px 11px;line-height:0;opacity:.6;}
+.tcm-photo-btn.sp-ico.active{opacity:1;background:#e8f5e9;border:2px solid #2e7d32;padding:3px 10px;}
 .tcm-photo-wrap{width:100%;border-radius:8px;overflow:hidden;background:#0b1220;display:flex;align-items:center;justify-content:center;min-height:120px;}
 .tcm-photo-wrap img{width:100%;display:block;}
 .tcm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
@@ -193,6 +221,8 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tcm-tier-table td{padding:4px 6px;border-bottom:1px solid #eef1f7;}
 .tcm-tier-table tr.excluded-row{background:#fdecea;}
 .tcm-2col{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:10px;margin-bottom:10px;align-items:stretch;}
+.sp-read{font-family:inherit!important;font-size:12.5px!important;line-height:1.55!important;max-width:none!important;}
+.sp-read p:first-child{margin-top:0;}
 .tcm-col-stack{display:flex;flex-direction:column;gap:10px;min-width:0;}
 .tcm-photo-rel{position:relative;}
 .tcm-photo-rel .tcm-photo-toggle{position:absolute;top:8px;left:8px;z-index:5;margin:0;background:rgba(255,255,255,.88);padding:4px;border-radius:16px;}
@@ -229,7 +259,7 @@ html.m-lite .top-bar>*{flex:0 0 auto;}
 html.m-lite .top-bar button,html.m-lite .top-bar select{min-height:44px;font-size:13px;padding:0 14px;}
 html.m-lite .top-bar select{font-size:16px;margin-left:0;}
 /* phone scope: Temp | Humidity | Wind | Solar. Hidden: labels, separators, Compare, Home, Canopy, Overall. */
-html.m-lite .top-bar .sep,html.m-lite .top-bar>span,html.m-lite #compareBtn,html.m-lite .home-btn,html.m-lite .var-btn[data-var="Canopy"],html.m-lite .var-btn[data-var="Overall"]{display:none;}
+html.m-lite .top-bar .sep,html.m-lite .top-bar>span,html.m-lite #compareBtn,html.m-lite .home-btn,html.m-lite .var-btn[data-var="Overall"]{display:none;}
 
 /* grid children must be allowed to shrink */
 html.m-lite .map-panel,html.m-lite .right-panel,html.m-lite #homeView{min-height:0;min-width:0;}
@@ -351,6 +381,35 @@ html.m-lite .wr-compact{flex-direction:column;align-items:center;}
 html.m-lite .wr-legend-v{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;width:100%;box-sizing:border-box;font-size:12px;}
 html.m-lite .wr-legend-v>div:first-child{flex:0 0 100%;text-align:center;margin-bottom:0!important;}
 html.m-lite .wr-legend-v .wr-leg-item{margin-bottom:0;}
+/* heatmap chip (5th tab), icon-only compare toggles */
+.m-hmchip{display:none;}
+html.m-lite .top-bar .m-hmchip{display:flex;align-items:center;justify-content:center;order:4;border-radius:20px;border:2px solid transparent;background:var(--bg);cursor:pointer;color:var(--muted);transition:all .15s;}
+html.m-lite .top-bar .m-hmchip.active{background:#4a1d96;border-color:#4a1d96;color:#fff;}
+html.m-lite .top-bar .m-hmchip svg{width:24px;height:24px;display:block;margin:0 auto;pointer-events:none;}
+html.m-port .top-bar .m-hmchip{flex:1 1 0;min-width:0;padding:0 4px;}
+html.m-land .top-bar .m-hmchip{flex:0 0 auto;min-width:64px;}
+html.m-lite .comp-view-btn{width:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;}
+html.m-lite .comp-view-btn svg{width:22px;height:22px;display:block;pointer-events:none;}
+html.m-lite .chart-card>div[style*="display:flex"] .chart-title{flex:1 1 auto;min-width:0;}
+html.m-lite .chart-card>div:has(.comp-view-btn){flex-wrap:nowrap;align-items:flex-start;gap:4px;}
+html.m-lite .chart-card>div:has(.comp-view-btn) .comp-view-btn{flex:0 0 44px;}
+html.m-lite #mainContent:has(#hmContainer) .toggle-row,html.m-lite #mainContent:has(#gr_hm) .toggle-row{display:none;}
+/* canopy tab on phones: three sub-tabs instead of one long scroll */
+.m-ctabs{display:flex;gap:6px;margin:0 0 10px;}
+.m-ctabs button{flex:1;min-height:40px;border-radius:20px;border:2px solid var(--navy);background:#fff;color:var(--navy);font-size:13px;font-weight:700;cursor:pointer;padding:0 6px;}
+.m-ctabs button.on{background:var(--navy);color:#fff;}
+html.m-lite #mainContent[data-ctab="1"] .m-ctab-2,html.m-lite #mainContent[data-ctab="1"] .m-ctab-3,
+html.m-lite #mainContent[data-ctab="2"] .m-ctab-1,html.m-lite #mainContent[data-ctab="2"] .m-ctab-3,
+html.m-lite #mainContent[data-ctab="3"] .m-ctab-1,html.m-lite #mainContent[data-ctab="3"] .m-ctab-2{display:none;}
+html.m-lite #tcmSunpathImg,html.m-lite #grTcmSunpathImg{width:100%;max-width:100%;height:auto;display:block;}
+html.m-lite #tcmSunpathImg,html.m-lite #grTcmSunpathImg,html.m-lite #tcmPhotoImg,html.m-lite #grTcmPhotoImg{cursor:zoom-in;}
+html.m-lite .m-hide{display:none!important;}
+html.m-lite .tcm-photo-btn.sp-ico{padding:7px 15px;}
+html.m-lite .tcm-photo-btn.sp-ico.active{padding:6px 14px;}
+html.m-lite .tcm-2col{grid-template-columns:minmax(0,1fr);}
+html.m-lite .tcm-2col>*{min-width:0;}
+html.m-lite .tcm-photo-rel .tcm-photo-toggle{position:static;background:none;padding:0;margin:0 0 8px;flex-wrap:wrap;}
+html.m-lite details>summary{cursor:pointer;font-weight:700;font-size:13px;color:var(--navy);padding:4px 0;}
 </style>
 </head>
 <body>
@@ -398,6 +457,7 @@ html.m-lite .wr-legend-v .wr-leg-item{margin-bottom:0;}
   <button class="var-btn" data-var="RelHum">💧 Rel. Humidity</button>
   <button class="var-btn" data-var="Wind">🌬 Wind</button>
   <button class="var-btn" data-var="GlobalRad">☀ Solar Radiation</button>
+  <button type="button" class="m-hmchip" id="mHmBtn" aria-label="Heatmap" title="Heatmap" aria-pressed="false"><svg viewBox="40 40 1120 1120" fill="none" stroke="currentColor" stroke-width="75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="112" y="112" width="975" height="975" rx="130"/><path d="M437 112v975M762 112v975M112 437h975M112 762h975"/><g fill="currentColor" stroke="none"><circle cx="600" cy="275" r="72"/><circle cx="925" cy="275" r="72"/><circle cx="275" cy="600" r="72"/><circle cx="600" cy="600" r="72"/><circle cx="275" cy="925" r="72"/></g></svg></button>
   <button class="var-btn" data-var="Canopy">🌳 Tree Canopy</button>
   <button class="var-btn" data-var="Overall">⬛ Overall</button>
   <button type="button" id="mMonthBtn" class="m-monthbtn" aria-haspopup="true" aria-expanded="false">Annual</button>
@@ -464,7 +524,7 @@ html.m-lite .wr-legend-v .wr-leg-item{margin-bottom:0;}
         <li><b>Tap any station</b> on the map to see its charts through the year</li>
         <li>Use the <b>year buttons</b> (2024 / 2025 / 2026) and the month menu to change the period. 2024 starts in April, 2026 runs to June</li>
         <li>Use the <b>layers</b> (stacked sheets) and <b>legend</b> (list) icons under the map; the <b>i</b> icon shows the sensor specifications. Green circles (G01-G25) are <b>greenery stations</b> (air temperature only)</li>
-        <li>Switch variable with the icon tabs in the top bar: <b>thermometer</b> (temperature), <b>drop</b> (humidity), <b>wind</b> (with a wind rose) and <b>sun</b> (solar). The <b>Heatmap</b> button shows all four by hour and month. The corner icon under the map makes the map bigger or smaller. Compare and the tree canopy views are on the desktop version</li>
+        <li>Switch variable with the icon tabs in the top bar: <b>thermometer</b> (temperature), <b>drop</b> (humidity), <b>wind</b> (with a wind rose) and <b>sun</b> (solar). The <b>grid icon</b> shows heatmaps of all four by hour and month (tap it again, or any other tab, to leave); the <b>tree icon</b> shows canopy and shade for a station. The corner icon under the map makes the map bigger or smaller. Compare and the Overall view are on the desktop version</li>
       </ul>
       <p style="margin:0 0 12px;font-size:12px;color:#64748b;font-style:italic">Data is quality-controlled but research-grade; station-years with known sensor issues are flagged on their charts.</p>
       <div style="border-top:1px solid #e2e8f0;padding-top:10px;font-size:11.5px;color:#64748b;line-height:1.5">
@@ -1723,7 +1783,6 @@ function renderGreeneryCharts(cont,ms){
     <button class="dn-btn ${effectiveDn==='a'&&dnMode!=='hm'?'active':''}" onclick="setDn('a')">All Day</button>
     <button class="dn-btn ${effectiveDn==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
     <button class="dn-btn ${effectiveDn==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
-    <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>
   </div>`;
 
   // Heatmap mode: single Air Temp hour x month grid for this station, then stop
@@ -1945,40 +2004,38 @@ Chart.register({
 });
 
 const COMPARE_LEGEND = `
-  <div style="display:flex;gap:14px;align-items:center;margin-top:6px;font-size:10px;color:var(--muted);">
-    <span style="display:inline-flex;align-items:center;gap:5px">
-      <span style="display:inline-block;width:12px;height:7px;border:1.5px solid #c62828;border-radius:1px"></span>Rooftop
-    </span>
-    <span style="display:inline-flex;align-items:center;gap:5px">
-      <span style="display:inline-block;width:12px;height:7px;background:#7b1fa2;border-radius:1px;position:relative">
-        <span style="position:absolute;top:1px;left:3px;width:3px;height:5px;background:#fff;border-radius:0"></span>
-      </span>Rooftop 3-axis
-    </span>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:10px;color:var(--muted);">
+    <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#374151"></span>Ground</span>
+    <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#c62828"></span>Rooftop</span>
+    <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:50%;background:#7b1fa2"></span>Rooftop 3-axis</span>
   </div>`;
 
 function setCompView(mode){ compView=mode; if(activeStation) renderAll(); }
 
+function selTypeColor(){const t=WS.stations[activeStation]?.type;return t==='Roof'?'#c62828':t==='Roof-3axis'?'#7b1fa2':'#374151';}
+function cmpXScale(wsTypes){
+  const col=i=>{const t=wsTypes?.[i];return t==='Roof'?'#c62828':t==='Roof-3axis'?'#7b1fa2':'#374151';};
+  if(!window.__mLite){
+    return {grid:{display:false},title:{display:true,text:'Weather Station Code',font:{size:10},color:'#64748b'},
+      ticks:{font:{size:8},maxRotation:45,color:c=>col(c.index)}};
+  }
+  return {grid:{display:false},
+    ticks:{autoSkip:false,minRotation:90,maxRotation:90,padding:2,
+      font:c=>({size:9,weight:(wsTypes?.[c.index]==='Roof'||wsTypes?.[c.index]==='Roof-3axis')?'700':'400'}),
+      color:c=>col(c.index)}};
+}
 function compareOpts(unit,yRange,wsTypes){
   const allSids=Object.keys(WS.stations).sort();
   return{
     responsive:true,maintainAspectRatio:false,
-    _wsTypes: wsTypes||[],
     plugins:{legend:{display:false},
       tooltip:{callbacks:{
         title:ctx=>allSids[ctx[0].dataIndex],
         label:c=>`${c.parsed.y!=null?c.parsed.y.toFixed(2):'N/A'} ${unit}`
       }}},
     scales:{
-      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}},
-         title:{display:true,text:unit,font:{size:10},color:'#64748b'}},
-      x:{grid:{display:false},
-         title:{display:true,text:'Weather Station Code',font:{size:10},color:'#64748b'},
-         ticks:{font:{size:8},maxRotation:45,padding:18,
-           color:(ctx)=>{
-             const t=wsTypes?.[ctx.index];
-             return t==='Roof'?'#c62828':t==='Roof-3axis'?'#7b1fa2':'#374151';
-           }
-         }}
+      y:{min:yRange.min,max:yRange.max,grid:{color:'#f1f5f9'},ticks:{font:{size:10}}},
+      x:cmpXScale(wsTypes)
     }
   };
 }
@@ -2053,8 +2110,7 @@ function renderCharts(cont,ms){
       : `<label>Period:</label>
          <button class="dn-btn ${dnMode==='a'?'active':''}" onclick="setDn('a')">All Day</button>
          <button class="dn-btn ${dnMode==='d'?'dn-active-day':''}" onclick="setDn('d')">☀ Daytime</button>
-         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>
-         <button class="dn-btn ${dnMode==='hm'?'dn-active-hm':''}" onclick="setDn('hm')">🗺 Heatmap</button>`
+         <button class="dn-btn ${dnMode==='n'?'dn-active-night':''}" onclick="setDn('n')">🌙 Nighttime</button>`
       }
   </div>`;
 
@@ -2122,10 +2178,10 @@ function renderCharts(cont,ms){
       <div class="chart-card">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <div class="chart-title">${vi.label} — All Station Comparison</div>
-          <button class="comp-view-btn ${compView==='bar'?'active':''}" onclick="setCompView('bar')">📊 Bar</button>
-          <button class="comp-view-btn ${compView==='box'?'active':''}" onclick="setCompView('box')">📦 Boxplot</button>
+          <button class="comp-view-btn ${compView==='bar'?'active':''}" onclick="setCompView('bar')" aria-label="Bar chart" title="Bar chart"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3.5" y="13" width="4.6" height="8" rx="1.3"/><rect x="9.7" y="8" width="4.6" height="13" rx="1.3"/><rect x="15.9" y="3" width="4.6" height="18" rx="1.3"/><rect x="2" y="20.3" width="20" height="1.9" rx="0.95"/></svg></button>
+          <button class="comp-view-btn ${compView==='box'?'active':''}" onclick="setCompView('box')" aria-label="Boxplot" title="Boxplot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5.5 4v4M5.5 15v5M3.6 4h3.8M3.6 20h3.8"/><path d="M12 2.5v4M12 14v7.5M10.1 2.5h3.8M10.1 21.5h3.8"/><path d="M18.5 7v4M18.5 17v3M16.6 7h3.8M16.6 20h3.8"/><g fill="currentColor" stroke="none"><rect x="3" y="8" width="5" height="7" rx="1"/><rect x="9.5" y="6.5" width="5" height="7.5" rx="1"/><rect x="16" y="11" width="5" height="6" rx="1"/></g></svg></button>
         </div>
-        <div class="chart-sub">${compView==='bar'?'Annual average':'Distribution of daily values'} · ${sid} highlighted</div>
+        <div class="chart-sub">${compView==='bar'?'Annual average':'Distribution of daily values'} (${vi.unit}) · x = station no. · ${sid} highlighted</div>
         <div class="chart-wrap" style="height:${compView==='box'?200:170}px"><canvas id="c_compare"></canvas></div>
         ${COMPARE_LEGEND}
       </div>
@@ -2180,8 +2236,8 @@ function renderCharts(cont,ms){
     if(compView==='box'){
       try{
         const boxData=allSids.map(s=>Object.values(WS.daily[s]||{}).map(d=>d[dk]).filter(v=>v!=null));
-        const selColor=allSids.map(s=>s===activeStation?vi.color:(WS.stations[s]?.typeGroup==='Roof'?'rgba(210,140,110,0.55)':'rgba(134,178,120,0.55)'));
-        const selBdr=allSids.map(s=>s===activeStation?vi.color:(WS.stations[s]?.typeGroup==='Roof'?'#9a4030':'#4a7a38'));
+        const selColor=allSids.map(s=>s===activeStation?selTypeColor():(WS.stations[s]?.typeGroup==='Roof'?'rgba(210,140,110,0.55)':'rgba(134,178,120,0.55)'));
+        const selBdr=allSids.map(s=>s===activeStation?selTypeColor():(WS.stations[s]?.typeGroup==='Roof'?'#9a4030':'#4a7a38'));
         charts.compare=new Chart(document.getElementById('c_compare'),{
           type:'boxplot',data:{labels:nums,datasets:[{data:boxData,
             backgroundColor:selColor,borderColor:selBdr,borderWidth:1.2,
@@ -2194,16 +2250,15 @@ function renderCharts(cont,ms){
               ...bpTooltip(vi.unit).callbacks
             }}},
             scales:{y:{min:getYRange(activeVar,'detail').min,max:getYRange(activeVar,'detail').max,
-              grid:{color:'#f1f5f9'},ticks:{font:{size:10}},title:{display:true,text:vi.unit,font:{size:10},color:'#64748b'}},
-              x:{grid:{display:false},title:{display:true,text:'Weather Station Code',font:{size:10},color:'#64748b'},
-                ticks:{font:{size:8},maxRotation:45,color:ctx=>wsTypes[ctx.index]==='Roof'?'#c62828':wsTypes[ctx.index]==='Roof-3axis'?'#7b1fa2':'#374151'}}}}
+              grid:{color:'#f1f5f9'},ticks:{font:{size:10}}},
+              x:cmpXScale(wsTypes)}}
         });
       }catch(e){ console.warn('Comparison boxplot failed:',e); }
     } else {
       charts.compare=new Chart(document.getElementById('c_compare'),{
         type:'bar',data:{labels:nums,datasets:[{data:cData,
-          backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
-          borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+          backgroundColor:allSids.map(s=>s===activeStation?selTypeColor():'rgba(148,163,184,.5)'),
+          borderColor:allSids.map(s=>s===activeStation?selTypeColor():'transparent'),
           borderWidth:2,borderRadius:3}]},
         options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
     }
@@ -2226,7 +2281,7 @@ function renderCharts(cont,ms){
       </div>
       <div class="chart-card">
         <div class="chart-title">${vi.label} — Station Comparison (${MONTHS[ms-1]})</div>
-        <div class="chart-sub">All stations · ${sid} highlighted</div>
+        <div class="chart-sub">All stations (${vi.unit}) · x = station no. · ${sid} highlighted</div>
         <div class="chart-wrap" style="height:170px"><canvas id="c_compare"></canvas></div>
         ${COMPARE_LEGEND}
       </div>
@@ -2240,8 +2295,8 @@ function renderCharts(cont,ms){
 
     charts.compare=new Chart(document.getElementById('c_compare'),{
       type:'bar',data:{labels:nums,datasets:[{data:cData,
-        backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
-        borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+        backgroundColor:allSids.map(s=>s===activeStation?selTypeColor():'rgba(148,163,184,.5)'),
+        borderColor:allSids.map(s=>s===activeStation?selTypeColor():'transparent'),
         borderWidth:2,borderRadius:3}]},
       options:compareOpts(vi.unit,getYRange(activeVar,'avg'),wsTypes)});
 
@@ -2266,6 +2321,7 @@ function setDn(mode){
 function renderWind(cont,ms){
   Object.values(charts).forEach(c=>c.destroy?.());charts={};
   const sid=activeStation,isAnnual=ms===0;
+  if(dnMode==='hm'){ const __av=activeVar; activeVar='AirTemp'; try{ renderCharts(cont,ms); }finally{ activeVar=__av; } return; }
   const effectiveDn=dnMode==='hm'?'a':dnMode; // heatmap mode isn't available on the Wind tab
   const vi=VARS['WindSpeed'],dk=getDataKey('WindSpeed',effectiveDn);
   const yr=yRangeCache['WindSpeed'];
@@ -2311,7 +2367,7 @@ function renderWind(cont,ms){
     </div>`:''}
     <div class="chart-card">
       <div class="chart-title">Wind Speed — Station Comparison</div>
-      <div class="chart-sub">Annual average · ${sid} highlighted</div>
+      <div class="chart-sub">Annual average (m/s) · x = station no. · ${sid} highlighted</div>
       <div class="chart-wrap" style="height:160px"><canvas id="c_wcompare"></canvas></div>
       ${COMPARE_LEGEND}
     </div>
@@ -2365,8 +2421,8 @@ function renderWind(cont,ms){
 
   charts.wcompare=new Chart(document.getElementById('c_wcompare'),{
     type:'bar',data:{labels:nums,datasets:[{data:cData,
-      backgroundColor:allSids.map(s=>s===activeStation?vi.color:'rgba(148,163,184,.5)'),
-      borderColor:allSids.map(s=>s===activeStation?vi.color:'transparent'),
+      backgroundColor:allSids.map(s=>s===activeStation?selTypeColor():'rgba(148,163,184,.5)'),
+      borderColor:allSids.map(s=>s===activeStation?selTypeColor():'transparent'),
       borderWidth:2,borderRadius:3}]},
     options:compareOpts('m/s',yr,wsTypes)});
 
@@ -2433,19 +2489,42 @@ function photoPaths(rec,isTcm){
 }
 
 function setCanopyPhoto(mode){
-  canopyPhotoMode=mode;
+  canopyPhotoMode=mode; window.__mWsMode=mode;
   const img=document.getElementById('tcmPhotoImg');
   const paths=window._canopyPhotoPaths;
-  if(img && paths && paths[mode]) img.src=TCM_BASE+paths[mode];
+  if(img && paths && paths[mode]) mSetImg(img,TCM_BASE+paths[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
 }
 
+// ── Sun path v4 charts (5 key-date lines; greyscale TCM + RGB photo backgrounds) ──
+// Files follow a naming convention (tcm_charts/<id>/sunpath_v4_tcm.png | sunpath_v4_rgb.png) instead of
+// being listed in the manifest. If a v4 file is not on the server (yet), the <img> falls back to the older chart.
+// GS RGB v4 is held back until the greenery panoramas are confirmed blurred; flip this when cleared.
+const SUNPATH_V4_GS_RGB=true;
+function sunpathV4Rel(id,mode){
+  if(mode==='photo' && String(id).startsWith('GS') && !SUNPATH_V4_GS_RGB) return null;
+  return `tcm_charts/${id}/sunpath_v4_${mode==='photo'?'rgb':'tcm'}.png`;
+}
+function sunpathImgAttrs(base,id,mode,oldRel){
+  const v4=sunpathV4Rel(id,mode), first=v4||oldRel||'';
+  const fb=(v4&&oldRel)?` onerror="this.onerror=null;this.src='${base+oldRel}'"`:'';
+  return `src="${base+first}"${fb}`;
+}
+function sunpathSet(img,base,id,mode,oldRel){
+  const v4=sunpathV4Rel(id,mode);
+  img.onerror=null;
+  if(v4&&oldRel) img.onerror=function(){ this.onerror=null; this.src=base+oldRel; };
+  const first=v4||oldRel; if(first) img.src=base+first;
+}
+const _SP_PIC=(sky,stroke,sun,hill)=>`<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.2" fill="${sky}" stroke="${stroke}" stroke-width="1.5"/><circle cx="8" cy="9.6" r="2" fill="${sun}"/><path d="M3.3 18.8 8.7 13l3.6 3.8 3-3.2 5.4 5.2z" fill="${hill}"/></svg>`;
+const SP_ICON_RGB=_SP_PIC('#bfe3ff','#334155','#ffb300','#43a047');   // colour picture = RGB photo
+const SP_ICON_TCM=_SP_PIC('#e5e7eb','#475569','#9ca3af','#6b7280');   // greyscale picture = TCM model
 let sunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
 function setSunpathMode(mode){
   sunpathMode=mode;
   const img=document.getElementById('tcmSunpathImg');
   const p=window._sunpathPaths;
-  if(img && p && p[mode]) img.src=TCM_BASE+p[mode];
+  if(img && window._sunpathId) sunpathSet(img,TCM_BASE,window._sunpathId,mode,p&&p[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
 }
 
@@ -2519,13 +2598,62 @@ function canopyPhotoToggleHtml(){
   </div>`;
 }
 
+// Shared "How to read this" content for both sun-path panels (WS + greenery). Source: sunpath_key_dates_table.html from the TCM project.
+const _SP_HEAD=`<!-- Sun path key-date table: paste inside the "How to read this" panel. Self-contained, no external deps. -->
+<div class="sp-read">
+<style>
+.sp-read{font:14px/1.5 system-ui,sans-serif;color:inherit;max-width:820px}
+.sp-read p{margin:.5em 0}
+.sp-read table{border-collapse:collapse;width:100%;margin:.6em 0}
+.sp-read th,.sp-read td{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(128,128,128,.3);vertical-align:middle}
+.sp-read th{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.75}
+.sp-read .sw{display:block;width:64px;height:20px;background:#2b2f36;border-radius:4px}
+.sp-read .note{font-size:13px;opacity:.8}
+@media(max-width:560px){.sp-read th:nth-child(3),.sp-read td:nth-child(3){display:none}}
+</style>
+
+`;
+const _SP_A=`<p><b>How to read this</b></p>
+<p>The dots are the sun's hourly positions over the whole year, as seen from the station looking around the horizon (S → W → N → E). Each figure-eight loop is one clock hour tracked across the year: loops near the horizon are early morning or late afternoon, loops near the top are midday.</p>
+<p><b>Dot colour</b> shows how much sunlight passes the canopy at that sun position: yellow is open sky (transmittance near 1), dark blue is blocked by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade.</p>
+`;
+const _SP_TBL=`<p><b>Path lines</b> show the sun's route across the sky on five key dates, from sunrise up and over to sunset:</p>
+
+<table>
+<thead><tr><th>Line</th><th>Date</th><th>Sun's position</th><th>What it tells you</th></tr></thead>
+<tbody>
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#00e5ff" stroke-width="2.6" stroke-dasharray="7 4"/></svg></td>
+<td>21 Dec<br><span class="note">Solstice</span></td><td>Furthest south, about 65° at midday</td><td>Lowest midday sun of the year</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#7dd3fc" stroke-width="2" stroke-dasharray="8 3 2 3"/></svg></td>
+<td>7 Nov / 4 Feb</td><td>Midway between Dec solstice and equinox, about 72°</td><td>Transition season, near-identical path on both dates</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#00e676" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 5"/></svg></td>
+<td>20 Mar / 23 Sep<br><span class="note">Equinox</span></td><td>Nearly overhead at midday, about 89°</td><td>Passes almost through the zenith, so the line looks vertical</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#ffb000" stroke-width="2" stroke-dasharray="8 3 2 3"/></svg></td>
+<td>5 May / 7 Aug</td><td>Midway between equinox and Jun solstice, about 75°</td><td>Transition season, near-identical path on both dates</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#ff3b30" stroke-width="2.6" stroke-dasharray="7 4"/></svg></td>
+<td>21 Jun<br><span class="note">Solstice</span></td><td>Furthest north, about 68° at midday</td><td>Opposite edge of the loops from the December line</td></tr>
+</tbody></table>
+
+`;
+const _SP_B=`<p class="note">Any other day of the year follows a path between these lines. Elevations are approximate midday values for a station near 1.3°N.</p>
+<p>Use the colour picture and greyscale picture buttons to see the same paths over the real photo or over the segmentation model it was computed from.</p>
+`;
+// Full text (phone, via window.__mLite) vs. desktop split: text on the right, key-date table under the photo.
+const SUNPATH_READ_HTML=`${_SP_HEAD}${_SP_A}${_SP_TBL}${_SP_B}</div>`;
+const SUNPATH_TEXT_HTML=`${_SP_HEAD}${_SP_A}${_SP_B}</div>`;
+const SUNPATH_TABLE_HTML=`${_SP_HEAD}${_SP_TBL}</div>`;
+
 function renderCanopyTcmBlock(sid,rec,valRec,excluded){
   const photos=photoPaths(rec,true);
   window._canopyPhotoPaths=photos;
   const chartsMap=rec.tcm_charts||{};
   const svf=TCM_SVF[sid];
   const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
-  window._sunpathPaths=sunpaths;
+  window._sunpathPaths=sunpaths; window._sunpathId=sid;
 
   return `
     ${excluded?`<div class="tcm-banner tcm-banner-excluded">
@@ -2538,7 +2666,7 @@ function renderCanopyTcmBlock(sid,rec,valRec,excluded){
         <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
         <div class="tcm-photo-rel">
           ${canopyPhotoToggleHtml()}
-          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" ${mAttrs(TCM_BASE+photos[canopyPhotoMode])} alt="${sid} panorama"/></div>
         </div>
         ${captureCaptionHtml(rec)}
       </div>
@@ -2566,16 +2694,15 @@ function renderCanopyTcmBlock(sid,rec,valRec,excluded){
         <div class="chart-title">Annual sun path — canopy transmittance</div>
         <div class="tcm-photo-rel">
           <div class="tcm-photo-toggle">
-            <button class="tcm-photo-btn ${sunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setSunpathMode('photo')">📷 RGB</button>
-            <button class="tcm-photo-btn ${sunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setSunpathMode('seg')">🗺 TCM</button>
+            <button class="tcm-photo-btn sp-ico ${sunpathMode==='photo'?'active':''}" data-sp="photo" aria-label="Colour photo (RGB)" title="Colour photo (RGB)" onclick="setSunpathMode('photo')">${SP_ICON_RGB}</button>
+            <button class="tcm-photo-btn sp-ico ${sunpathMode==='seg'?'active':''}" data-sp="seg" aria-label="Greyscale model (TCM)" title="Greyscale model (TCM)" onclick="setSunpathMode('seg')">${SP_ICON_TCM}</button>
           </div>
-          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" src="${TCM_BASE+(sunpaths[sunpathMode]||sunpaths.photo||'')}" alt="${sid} sun path overlay"/></div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" ${sunpathImgAttrs(TCM_BASE,sid,sunpathMode,sunpaths[sunpathMode]||sunpaths.photo)} alt="${sid} sun path overlay"/></div>
         </div>
+        ${window.__mLite?'':`<div style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--muted)">${SUNPATH_TABLE_HTML}</div>`}
       </div>
       <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">How to read this</div>
-        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
-          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">${window.__mLite?SUNPATH_READ_HTML:SUNPATH_TEXT_HTML}
         </div>
       </div>
     </div>
@@ -2613,7 +2740,7 @@ function renderCanopySviOnlyBlock(sid,rec){
         <div class="chart-title">Street-view panorama &amp; segmentation — ${sid}</div>
         <div class="tcm-photo-rel">
           ${canopyPhotoToggleHtml()}
-          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" src="${TCM_BASE+photos[canopyPhotoMode]}" alt="${sid} panorama"/></div>
+          <div class="tcm-photo-wrap"><img id="tcmPhotoImg" ${mAttrs(TCM_BASE+photos[canopyPhotoMode])} alt="${sid} panorama"/></div>
         </div>
         ${captureCaptionHtml(rec)}
       </div>
@@ -2673,7 +2800,7 @@ function setGrCanopyPhoto(mode){
   canopyPhotoMode=mode;
   const img=document.getElementById('grTcmPhotoImg');
   const paths=window._grCanopyPhotoPaths;
-  if(img && paths && paths[mode]) img.src=GTCM_BASE+paths[mode];
+  if(img && paths && paths[mode]) mSetImg(img,GTCM_BASE+paths[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
 }
 let grSunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
@@ -2681,7 +2808,7 @@ function setGrSunpathMode(mode){
   grSunpathMode=mode;
   const img=document.getElementById('grTcmSunpathImg');
   const p=window._grSunpathPaths;
-  if(img && p && p[mode]) img.src=GTCM_BASE+p[mode];
+  if(img && window._grSunpathId) sunpathSet(img,GTCM_BASE,window._grSunpathId,mode,p&&p[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
 }
 function grCanopyPhotoToggleHtml(){
@@ -2753,7 +2880,7 @@ function renderGreeneryCanopy(cont,gid){
   window._grCanopyPhotoPaths=photos;
   const chartsMap=rec.tcm_charts||{};
   const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
-  window._grSunpathPaths=sunpaths;
+  window._grSunpathPaths=sunpaths; window._grSunpathId=gidToGsId(gid);
   const svf=rec.svf_mean;
 
   cont.innerHTML=`
@@ -2762,7 +2889,7 @@ function renderGreeneryCanopy(cont,gid){
         <div class="chart-title">Street-view panorama &amp; segmentation — ${gid}</div>
         <div class="tcm-photo-rel">
           ${grCanopyPhotoToggleHtml()}
-          <div class="tcm-photo-wrap"><img id="grTcmPhotoImg" src="${GTCM_BASE+(photos[canopyPhotoMode]||photos.real||'')}" alt="${gid} panorama"/></div>
+          <div class="tcm-photo-wrap"><img id="grTcmPhotoImg" ${mAttrs(GTCM_BASE+(photos[canopyPhotoMode]||photos.real||''))} alt="${gid} panorama"/></div>
         </div>
       </div>
       <div class="tcm-col-stack">
@@ -2789,16 +2916,15 @@ function renderGreeneryCanopy(cont,gid){
         <div class="chart-title">Annual sun path — canopy transmittance</div>
         <div class="tcm-photo-rel">
           <div class="tcm-photo-toggle">
-            <button class="tcm-photo-btn ${grSunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setGrSunpathMode('photo')">📷 RGB</button>
-            <button class="tcm-photo-btn ${grSunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setGrSunpathMode('seg')">🗺 TCM</button>
+            <button class="tcm-photo-btn sp-ico ${grSunpathMode==='photo'?'active':''}" data-sp="photo" aria-label="Colour photo (RGB)" title="Colour photo (RGB)" onclick="setGrSunpathMode('photo')">${SP_ICON_RGB}</button>
+            <button class="tcm-photo-btn sp-ico ${grSunpathMode==='seg'?'active':''}" data-sp="seg" aria-label="Greyscale model (TCM)" title="Greyscale model (TCM)" onclick="setGrSunpathMode('seg')">${SP_ICON_TCM}</button>
           </div>
-          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" src="${GTCM_BASE+(sunpaths[grSunpathMode]||sunpaths.photo||'')}" alt="${gid} sun path overlay"/></div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" ${sunpathImgAttrs(GTCM_BASE,gidToGsId(gid),grSunpathMode,sunpaths[grSunpathMode]||sunpaths.photo)} alt="${gid} sun path overlay"/></div>
         </div>
+        ${window.__mLite?'':`<div style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--muted)">${SUNPATH_TABLE_HTML}</div>`}
       </div>
       <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">How to read this</div>
-        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
-          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">${window.__mLite?SUNPATH_READ_HTML:SUNPATH_TEXT_HTML}
           <br><br>
           This site has no pyranometer, so its shade estimate hasn't been checked against measured solar radiation on the ground here. The same modeling approach has been validated at the WS network's 31 ground stations, which do carry pyranometers — canopy-adjusted transmittance tracked measured solar radiation well at most of those stations (agreement varied by site), supporting its use as a reasonable proxy for ground-level solar radiation at greenery sites like this one.
         </div>
@@ -3128,6 +3254,14 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
   if(window.__mLite){ const dpr=Math.min(window.devicePixelRatio||1,3); canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); }
   else{ canvas.width=W; canvas.height=H; }
   ctx.clearRect(0,0,W,H);
+  if(!window.__mLite){ const dpr=Math.max(1,Math.min(window.devicePixelRatio||1,3)); canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); }
+  canvas._hmDraw=[canvasId,data2d,cmap,yLabels,hmRange,cbId,unit,cbTicks,startHour,endHour,aspect]; canvas._hmLastW=W;
+  if(!window.__mLite && typeof ResizeObserver!=='undefined' && !canvas._hmRO && canvas.parentElement){
+    canvas._hmRO=new ResizeObserver(()=>{ if(canvas._hmRaf) return; canvas._hmRaf=requestAnimationFrame(()=>{ canvas._hmRaf=0;
+      const w=canvas.parentElement?canvas.parentElement.offsetWidth-4:0;
+      if(canvas.isConnected && w>80 && Math.abs(w-canvas._hmLastW)>8){ try{ drawHeatmapNew.apply(null,canvas._hmDraw); }catch(e){} } }); });
+    canvas._hmRO.observe(canvas.parentElement);
+  }
 
   const cellW=plotW/nCols, cellH=plotH/nRows;
   // Use cbTicks range if provided — ensures colorbar and cell colors share the same scale
@@ -3180,7 +3314,7 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
 
   // X axis label — 10px below tick numbers
   ctx.font='11px Segoe UI'; ctx.fillStyle='#64748b'; ctx.textAlign='center';
-  ctx.fillText(window.__mLite ? 'Hour of day (0 to 23)' : 'Hour of Day', PL+plotW/2, PT+plotH+28);
+  ctx.fillText(window.__mLite ? `Hour of day (${startHour ?? 0} to ${endHour ?? 23})` : 'Hour of Day', PL+plotW/2, PT+plotH+28);
 
   // Border
   ctx.strokeStyle='#d1d5db'; ctx.lineWidth=.5;
@@ -3195,8 +3329,10 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
     const barW=12, tickLen=5, lblOff=7;
     const totalW=barW+tickLen+36;
     const totalH=cbH+PAD*2;
-    cb.height=totalH; cb.width=totalW;
+    const dprC=Math.max(1,Math.min(window.devicePixelRatio||1,3));
+    cb.height=Math.round(totalH*dprC); cb.width=Math.round(totalW*dprC); cb.style.width=totalW+'px'; cb.style.height=totalH+'px';
     const cctx=cb.getContext('2d');
+    cctx.setTransform(dprC,0,0,dprC,0,0);
     cctx.clearRect(0,0,totalW,totalH);
     // Gradient bar drawn with PAD offset at top
     const grad=cctx.createLinearGradient(0,PAD+cbH,0,PAD);
@@ -3327,6 +3463,97 @@ document.getElementById('monthSel').addEventListener('change',()=>{
 
 loadData();
 </script>
+<script>(function(){
+  if(!window.__mLite) return;
+  var css=document.createElement('style');
+  css.textContent=
+   '#mLb{position:fixed;left:0;top:0;right:0;bottom:0;z-index:100000;background:rgba(8,12,20,.97);display:none;touch-action:none;overscroll-behavior:contain;-webkit-user-select:none;user-select:none;}'+
+   '#mLb.open{display:block;}'+
+   '#mLb .lb-stage{position:absolute;left:0;top:0;right:0;bottom:0;overflow:hidden;display:flex;align-items:center;justify-content:center;}'+
+   '#mLb img{max-width:100%;max-height:100%;width:auto;height:auto;transform-origin:50% 50%;will-change:transform;pointer-events:none;-webkit-user-drag:none;background:#fff;}'+
+   '#mLb img.anim{transition:transform .16s ease-out;}'+
+   '#mLb button{font-family:inherit;color:#fff;background:rgba(255,255,255,.16);border:1.5px solid rgba(255,255,255,.65);border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;}'+
+   '#mLb .lb-x{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;font-size:28px;line-height:1;padding:0;}'+
+   '#mLb .lb-zoom{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:14px;}'+
+   '#mLb .lb-zoom button{width:52px;height:52px;font-size:30px;line-height:1;padding:0;}'+
+   '#mLb .lb-hint{position:absolute;top:max(18px,env(safe-area-inset-top));left:max(16px,env(safe-area-inset-left));font:500 12px/1.3 system-ui,sans-serif;color:rgba(255,255,255,.75);max-width:60%;transition:opacity .6s;}';
+  document.head.appendChild(css);
+  var lb=null,img=null,st={s:1,x:0,y:0},ptrs={},nPtr=0,pinch=null,tapT=0,tapX=0,tapY=0,downX=0,downY=0,moved=false,downT=0,prev=null,MAXS=6;
+  function vw(){return lb.clientWidth;} function vh(){return lb.clientHeight;}
+  function clampS(s){return Math.max(1,Math.min(MAXS,s));}
+  function apply(anim){
+    var w=img.offsetWidth*st.s,h=img.offsetHeight*st.s;
+    var mx=Math.max(0,(w-vw())/2),my=Math.max(0,(h-vh())/2);
+    st.x=Math.max(-mx,Math.min(mx,st.x)); st.y=Math.max(-my,Math.min(my,st.y));
+    if(anim){img.classList.add('anim');setTimeout(function(){img.classList.remove('anim');},200);}
+    img.style.transform='translate('+st.x+'px,'+st.y+'px) scale('+st.s+')';
+  }
+  function zoomAbout(px,py,ns){
+    ns=clampS(ns); var cx=px-vw()/2,cy=py-vh()/2,f=ns/st.s;
+    st.x=cx-(cx-st.x)*f; st.y=cy-(cy-st.y)*f; st.s=ns;
+  }
+  function reset(){st.s=1;st.x=0;st.y=0;apply(false);}
+  function build(){
+    lb=document.createElement('div'); lb.id='mLb'; lb.setAttribute('role','dialog'); lb.setAttribute('aria-modal','true');
+    lb.innerHTML='<div class="lb-stage"><img alt=""></div><div class="lb-hint">Pinch or double-tap to zoom, drag to move</div>'+
+      '<button class="lb-x" type="button" aria-label="Close">&times;</button>'+
+      '<div class="lb-zoom"><button type="button" class="lb-out" aria-label="Zoom out">&minus;</button><button type="button" class="lb-in" aria-label="Zoom in">+</button></div>';
+    document.body.appendChild(lb); img=lb.querySelector('img');
+    lb.querySelector('.lb-x').addEventListener('click',close);
+    lb.querySelector('.lb-in').addEventListener('click',function(){zoomAbout(vw()/2,vh()/2,st.s*1.5);apply(true);});
+    lb.querySelector('.lb-out').addEventListener('click',function(){zoomAbout(vw()/2,vh()/2,st.s/1.5);apply(true);});
+    ['.lb-x','.lb-zoom'].forEach(function(q){lb.querySelector(q).addEventListener('pointerdown',function(e){e.stopPropagation();});});
+    lb.addEventListener('pointerdown',function(e){
+      ptrs[e.pointerId]={x:e.clientX,y:e.clientY}; nPtr++; try{lb.setPointerCapture(e.pointerId);}catch(_){}
+      if(nPtr===1){moved=false;downT=Date.now();downX=e.clientX;downY=e.clientY;prev={x:e.clientX,y:e.clientY};}
+      if(nPtr===2){var k=Object.keys(ptrs),a=ptrs[k[0]],b=ptrs[k[1]];pinch={d:Math.hypot(a.x-b.x,a.y-b.y)||1,s:st.s,mx:(a.x+b.x)/2,my:(a.y+b.y)/2};moved=true;}
+    });
+    lb.addEventListener('pointermove',function(e){
+      if(!ptrs[e.pointerId])return; ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
+      if(nPtr>=2&&pinch){
+        var k=Object.keys(ptrs),a=ptrs[k[0]],b=ptrs[k[1]],d=Math.hypot(a.x-b.x,a.y-b.y)||1,mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+        st.x+=mx-pinch.mx; st.y+=my-pinch.my; zoomAbout(mx,my,pinch.s*d/pinch.d); pinch.mx=mx; pinch.my=my; apply(false);
+      }else if(nPtr===1){
+        var dx=e.clientX-prev.x,dy=e.clientY-prev.y;
+        if(Math.hypot(e.clientX-downX,e.clientY-downY)>8)moved=true;
+        if(st.s>1){st.x+=dx;st.y+=dy;apply(false);}
+        prev={x:e.clientX,y:e.clientY};
+      }
+    });
+    function up(e){
+      if(!ptrs[e.pointerId])return; delete ptrs[e.pointerId]; nPtr=Math.max(0,nPtr-1); if(nPtr<2)pinch=null;
+      if(nPtr===0&&e.type==='pointerup'){
+        var now=Date.now();
+        if(!moved&&now-downT<350){
+          if(now-tapT<320&&Math.hypot(e.clientX-tapX,e.clientY-tapY)<40){
+            if(st.s>1.05){st.s=1;st.x=0;st.y=0;}else{zoomAbout(e.clientX,e.clientY,2.5);}
+            apply(true); tapT=0;
+          }else{tapT=now;tapX=e.clientX;tapY=e.clientY;}
+        }
+      }
+    }
+    lb.addEventListener('pointerup',up); lb.addEventListener('pointercancel',up);
+    lb.addEventListener('wheel',function(e){e.preventDefault();zoomAbout(e.clientX,e.clientY,st.s*(e.deltaY<0?1.2:1/1.2));apply(false);},{passive:false});
+    ['gesturestart','gesturechange'].forEach(function(n){lb.addEventListener(n,function(e){e.preventDefault();});});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&lb.classList.contains('open'))close();});
+    window.addEventListener('resize',function(){if(lb.classList.contains('open'))apply(false);});
+    window.addEventListener('orientationchange',function(){setTimeout(function(){if(lb.classList.contains('open'))apply(false);},300);});
+  }
+  function open(src,alt){
+    if(!lb)build();
+    img.alt=alt||''; ptrs={}; nPtr=0; pinch=null; tapT=0;
+    img.onload=function(){reset();}; img.src=src; st={s:1,x:0,y:0};
+    lb.classList.add('open'); document.documentElement.style.overflow='hidden'; reset();
+    var h=lb.querySelector('.lb-hint'); h.style.opacity='1'; setTimeout(function(){h.style.opacity='0';},3500);
+  }
+  function close(){lb.classList.remove('open'); document.documentElement.style.overflow='';}
+  window.mOpenLightbox=open;
+  document.addEventListener('click',function(e){
+    var t=e.target; if(!t||t.tagName!=='IMG'||!/^(tcmSunpathImg|grTcmSunpathImg|tcmPhotoImg|grTcmPhotoImg)$/.test(t.id))return;
+    open(t.currentSrc||t.src,t.alt);
+  });
+})();
+</script>
 <script>
 /* mobile-lite helpers */
 (function(){
@@ -3436,9 +3663,85 @@ loadData();
       AirTemp:['Temperature',IC+'<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/></svg>'],
       RelHum:['Humidity',IC+'<path d="M12 3s-6.5 7-6.5 11.5a6.5 6.5 0 0 0 13 0C18.5 10 12 3 12 3z"/></svg>'],
       Wind:['Wind',IC+'<path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/></svg>'],
+      Canopy:['Tree canopy and shade',IC+'<path d="M12 22v-7"/><path d="M12 15c-4.2 0-7-2.6-7-5.8 0-2 1.3-3.6 3-4.3C8.6 2.7 10.2 1.5 12 1.5s3.4 1.2 4 3.4c1.7.7 3 2.3 3 4.3 0 3.2-2.8 5.8-7 5.8z"/></svg>'],
       GlobalRad:['Solar radiation',IC+'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>']
     };
     document.querySelectorAll('.var-btn').forEach(function(b){var v=VI[b.dataset.var];if(v){b.innerHTML=v[1];b.setAttribute('aria-label',v[0]);b.title=v[0];}});
+    var hb=document.getElementById('mHmBtn');
+    if(hb){
+      var hmSync=function(){
+        var on=(dnMode==='hm');
+        if(hb.classList.contains('active')!==on)hb.classList.toggle('active',on);
+        hb.setAttribute('aria-pressed',on?'true':'false');
+        document.querySelectorAll('.var-btn').forEach(function(b){
+          var a=b.classList.contains('active');
+          if(on&&a)b.classList.remove('active');
+          else if(!on&&b.dataset.var===activeVar&&!a)b.classList.add('active');
+        });
+      };
+      document.addEventListener('click',function(e){
+        var b=e.target.closest&&e.target.closest('.var-btn');
+        if(b&&dnMode==='hm')dnMode='a';
+      },true);
+      hb.addEventListener('click',function(){
+        dnMode=(dnMode==='hm')?'a':'hm'; if(dnMode==='hm'&&activeVar==='Canopy')activeVar='AirTemp';
+        hmSync();
+        if(homeVisible)return;
+        if(compareMode){renderActiveCompare();return;}
+        if(activeGreenery){renderGreenery();return;}
+        if(!activeStation)return;
+        showCharts();renderAll();
+      });
+      var tb=document.querySelector('.top-bar');
+      if(window.MutationObserver&&tb)new MutationObserver(hmSync).observe(tb,{attributes:true,attributeFilter:['class'],subtree:true});
+      hmSync();
+    }
+    (function(){
+      function redrawHm(){document.querySelectorAll('#mainContent canvas').forEach(function(c){if(c._hmArgs&&c.isConnected){try{drawHeatmapNew.apply(null,c._hmArgs);}catch(e){}}});}
+      function gsRgbOk(){return typeof SUNPATH_V4_GS_RGB!=='undefined'&&SUNPATH_V4_GS_RGB;}
+      function chain(base,id,mode,oldRel){
+        var v4=sunpathV4Rel(id,mode),l=[];
+        if(v4){var m=window.mMap(base+v4);if(m)l.push(m);l.push(base+v4);}
+        if(oldRel)l.push(base+oldRel);
+        return l;
+      }
+      window.sunpathImgAttrs=function(base,id,mode,oldRel){var l=chain(base,id,mode,oldRel);return 'src="'+(l[0]||'')+'" data-fb=\''+JSON.stringify(l.slice(1))+'\'';};
+      window.sunpathSet=function(img,base,id,mode,oldRel){var l=chain(base,id,mode,oldRel);img.dataset.fb=JSON.stringify(l.slice(1));if(l[0])img.src=l[0];};
+      function mTabs(cont,isGs){
+        if(!cont)return;
+        var kids=[].slice.call(cont.children),blocks=kids.filter(function(e){return e.classList.contains('tcm-2col');});
+        if(blocks.length<3)return;
+        var n=0;
+        kids.forEach(function(e){if(e.classList.contains('tcm-2col'))n++;if(n>0)e.classList.add('m-ctab-'+Math.min(n,3));});
+        var bar=document.createElement('div');bar.className='m-ctabs';
+        bar.innerHTML='<button type="button" data-t="1">Photo</button><button type="button" data-t="2">Sun path</button><button type="button" data-t="3">Shade</button>';
+        cont.insertBefore(bar,blocks[0]);
+        function show(t){
+          cont.dataset.ctab=t;window.__mCTab=t;
+          bar.querySelectorAll('button').forEach(function(b){b.classList.toggle('on',b.dataset.t===String(t));});
+          if(String(t)==='3')setTimeout(redrawHm,40);
+        }
+        bar.addEventListener('click',function(e){var b=e.target.closest('button');if(b)show(b.dataset.t);});
+        show(window.__mCTab||'1');
+        var how=cont.querySelector('.sp-read');
+        if(how&&how.parentElement&&!how.parentElement.querySelector('details')){
+          var inner=how.parentElement,d=document.createElement('details'),s=document.createElement('summary');
+          s.textContent='How to read this chart';d.appendChild(s);
+          while(inner.firstChild)d.appendChild(inner.firstChild);
+          inner.appendChild(d);
+        }
+        var img=cont.querySelector('#tcmSunpathImg,#grTcmSunpathImg');
+        if(img&&img.parentElement){var h=document.createElement('div');h.className='chart-sub';h.style.margin='4px 0 0';h.textContent='Tap the chart to enlarge and zoom';img.parentElement.insertAdjacentElement('afterend',h);}
+        if(isGs){
+          var pt=cont.querySelector('.tcm-photo-toggle:has([data-mode])');if(pt)pt.classList.add('m-hide');
+          if(!gsRgbOk()){var rb=cont.querySelector('[data-sp="photo"]');if(rb)rb.classList.add('m-hide');}
+        }
+      }
+      var rc=window.renderCanopy;
+      window.renderCanopy=function(c,s){canopyPhotoMode=window.__mWsMode||'real';rc(c,s);mTabs(c,false);};
+      var rg=window.renderGreeneryCanopy;
+      window.renderGreeneryCanopy=function(c,g){canopyPhotoMode='segmented';if(!gsRgbOk())grSunpathMode='seg';rg(c,g);mTabs(c,true);};
+    })();
     var ns=document.querySelector('.no-sel div:last-child');
     if(ns)ns.textContent='Tap any marker to explore weather data.';
   }

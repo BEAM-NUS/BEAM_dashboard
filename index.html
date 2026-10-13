@@ -156,6 +156,8 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tcm-photo-toggle{display:flex;gap:6px;margin-bottom:8px;}
 .tcm-photo-btn{padding:4px 12px;border-radius:14px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);}
 .tcm-photo-btn.active{background:#2e7d32;color:#fff;border-color:#2e7d32;}
+.tcm-photo-btn.sp-ico{display:inline-flex;align-items:center;justify-content:center;padding:4px 11px;line-height:0;opacity:.6;}
+.tcm-photo-btn.sp-ico.active{opacity:1;background:#e8f5e9;border:2px solid #2e7d32;padding:3px 10px;}
 .tcm-photo-wrap{width:100%;border-radius:8px;overflow:hidden;background:#0b1220;display:flex;align-items:center;justify-content:center;min-height:120px;}
 .tcm-photo-wrap img{width:100%;display:block;}
 .tcm-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
@@ -167,6 +169,8 @@ body.wind-mode .top-bar{opacity:.45;pointer-events:none;}
 .tcm-tier-table td{padding:4px 6px;border-bottom:1px solid #eef1f7;}
 .tcm-tier-table tr.excluded-row{background:#fdecea;}
 .tcm-2col{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:10px;margin-bottom:10px;align-items:stretch;}
+.sp-read{font-family:inherit!important;font-size:12.5px!important;line-height:1.55!important;max-width:none!important;}
+.sp-read p:first-child{margin-top:0;}
 .tcm-col-stack{display:flex;flex-direction:column;gap:10px;min-width:0;}
 .tcm-photo-rel{position:relative;}
 .tcm-photo-rel .tcm-photo-toggle{position:absolute;top:8px;left:8px;z-index:5;margin:0;background:rgba(255,255,255,.88);padding:4px;border-radius:16px;}
@@ -2229,12 +2233,35 @@ function setCanopyPhoto(mode){
   document.querySelectorAll('.tcm-photo-btn[data-mode]').forEach(b=>b.classList.toggle('active', b.dataset.mode===mode));
 }
 
+// ── Sun path v4 charts (5 key-date lines; greyscale TCM + RGB photo backgrounds) ──
+// Files follow a naming convention (tcm_charts/<id>/sunpath_v4_tcm.png | sunpath_v4_rgb.png) instead of
+// being listed in the manifest. If a v4 file is not on the server (yet), the <img> falls back to the older chart.
+// GS RGB v4 is held back until the greenery panoramas are confirmed blurred; flip this when cleared.
+const SUNPATH_V4_GS_RGB=true;
+function sunpathV4Rel(id,mode){
+  if(mode==='photo' && String(id).startsWith('GS') && !SUNPATH_V4_GS_RGB) return null;
+  return `tcm_charts/${id}/sunpath_v4_${mode==='photo'?'rgb':'tcm'}.png`;
+}
+function sunpathImgAttrs(base,id,mode,oldRel){
+  const v4=sunpathV4Rel(id,mode), first=v4||oldRel||'';
+  const fb=(v4&&oldRel)?` onerror="this.onerror=null;this.src='${base+oldRel}'"`:'';
+  return `src="${base+first}"${fb}`;
+}
+function sunpathSet(img,base,id,mode,oldRel){
+  const v4=sunpathV4Rel(id,mode);
+  img.onerror=null;
+  if(v4&&oldRel) img.onerror=function(){ this.onerror=null; this.src=base+oldRel; };
+  const first=v4||oldRel; if(first) img.src=base+first;
+}
+const _SP_PIC=(sky,stroke,sun,hill)=>`<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.2" fill="${sky}" stroke="${stroke}" stroke-width="1.5"/><circle cx="8" cy="9.6" r="2" fill="${sun}"/><path d="M3.3 18.8 8.7 13l3.6 3.8 3-3.2 5.4 5.2z" fill="${hill}"/></svg>`;
+const SP_ICON_RGB=_SP_PIC('#bfe3ff','#334155','#ffb300','#43a047');   // colour picture = RGB photo
+const SP_ICON_TCM=_SP_PIC('#e5e7eb','#475569','#9ca3af','#6b7280');   // greyscale picture = TCM model
 let sunpathMode='photo';   // photo (RGB) | seg (TCM segmentation) — sun-path overlay toggle
 function setSunpathMode(mode){
   sunpathMode=mode;
   const img=document.getElementById('tcmSunpathImg');
   const p=window._sunpathPaths;
-  if(img && p && p[mode]) img.src=TCM_BASE+p[mode];
+  if(img && window._sunpathId) sunpathSet(img,TCM_BASE,window._sunpathId,mode,p&&p[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
 }
 
@@ -2308,13 +2335,62 @@ function canopyPhotoToggleHtml(){
   </div>`;
 }
 
+// Shared "How to read this" content for both sun-path panels (WS + greenery). Source: sunpath_key_dates_table.html from the TCM project.
+const _SP_HEAD=`<!-- Sun path key-date table: paste inside the "How to read this" panel. Self-contained, no external deps. -->
+<div class="sp-read">
+<style>
+.sp-read{font:14px/1.5 system-ui,sans-serif;color:inherit;max-width:820px}
+.sp-read p{margin:.5em 0}
+.sp-read table{border-collapse:collapse;width:100%;margin:.6em 0}
+.sp-read th,.sp-read td{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(128,128,128,.3);vertical-align:middle}
+.sp-read th{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;opacity:.75}
+.sp-read .sw{display:block;width:64px;height:20px;background:#2b2f36;border-radius:4px}
+.sp-read .note{font-size:13px;opacity:.8}
+@media(max-width:560px){.sp-read th:nth-child(3),.sp-read td:nth-child(3){display:none}}
+</style>
+
+`;
+const _SP_A=`<p><b>How to read this</b></p>
+<p>The dots are the sun's hourly positions over the whole year, as seen from the station looking around the horizon (S → W → N → E). Each figure-eight loop is one clock hour tracked across the year: loops near the horizon are early morning or late afternoon, loops near the top are midday.</p>
+<p><b>Dot colour</b> shows how much sunlight passes the canopy at that sun position: yellow is open sky (transmittance near 1), dark blue is blocked by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade.</p>
+`;
+const _SP_TBL=`<p><b>Path lines</b> show the sun's route across the sky on five key dates, from sunrise up and over to sunset:</p>
+
+<table>
+<thead><tr><th>Line</th><th>Date</th><th>Sun's position</th><th>What it tells you</th></tr></thead>
+<tbody>
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#00e5ff" stroke-width="2.6" stroke-dasharray="7 4"/></svg></td>
+<td>21 Dec<br><span class="note">Solstice</span></td><td>Furthest south, about 65° at midday</td><td>Lowest midday sun of the year</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#7dd3fc" stroke-width="2" stroke-dasharray="8 3 2 3"/></svg></td>
+<td>7 Nov / 4 Feb</td><td>Midway between Dec solstice and equinox, about 72°</td><td>Transition season, near-identical path on both dates</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#00e676" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 5"/></svg></td>
+<td>20 Mar / 23 Sep<br><span class="note">Equinox</span></td><td>Nearly overhead at midday, about 89°</td><td>Passes almost through the zenith, so the line looks vertical</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#ffb000" stroke-width="2" stroke-dasharray="8 3 2 3"/></svg></td>
+<td>5 May / 7 Aug</td><td>Midway between equinox and Jun solstice, about 75°</td><td>Transition season, near-identical path on both dates</td></tr>
+
+<tr><td><svg class="sw" viewBox="0 0 64 20"><line x1="4" y1="10" x2="60" y2="10" stroke="#ff3b30" stroke-width="2.6" stroke-dasharray="7 4"/></svg></td>
+<td>21 Jun<br><span class="note">Solstice</span></td><td>Furthest north, about 68° at midday</td><td>Opposite edge of the loops from the December line</td></tr>
+</tbody></table>
+
+`;
+const _SP_B=`<p class="note">Any other day of the year follows a path between these lines. Elevations are approximate midday values for a station near 1.3°N.</p>
+<p>Use the colour picture and greyscale picture buttons to see the same paths over the real photo or over the segmentation model it was computed from.</p>
+`;
+// Full text (phone, via window.__mLite) vs. desktop split: text on the right, key-date table under the photo.
+const SUNPATH_READ_HTML=`${_SP_HEAD}${_SP_A}${_SP_TBL}${_SP_B}</div>`;
+const SUNPATH_TEXT_HTML=`${_SP_HEAD}${_SP_A}${_SP_B}</div>`;
+const SUNPATH_TABLE_HTML=`${_SP_HEAD}${_SP_TBL}</div>`;
+
 function renderCanopyTcmBlock(sid,rec,valRec,excluded){
   const photos=photoPaths(rec,true);
   window._canopyPhotoPaths=photos;
   const chartsMap=rec.tcm_charts||{};
   const svf=TCM_SVF[sid];
   const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
-  window._sunpathPaths=sunpaths;
+  window._sunpathPaths=sunpaths; window._sunpathId=sid;
 
   return `
     ${excluded?`<div class="tcm-banner tcm-banner-excluded">
@@ -2355,16 +2431,15 @@ function renderCanopyTcmBlock(sid,rec,valRec,excluded){
         <div class="chart-title">Annual sun path — canopy transmittance</div>
         <div class="tcm-photo-rel">
           <div class="tcm-photo-toggle">
-            <button class="tcm-photo-btn ${sunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setSunpathMode('photo')">📷 RGB</button>
-            <button class="tcm-photo-btn ${sunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setSunpathMode('seg')">🗺 TCM</button>
+            <button class="tcm-photo-btn sp-ico ${sunpathMode==='photo'?'active':''}" data-sp="photo" aria-label="Colour photo (RGB)" title="Colour photo (RGB)" onclick="setSunpathMode('photo')">${SP_ICON_RGB}</button>
+            <button class="tcm-photo-btn sp-ico ${sunpathMode==='seg'?'active':''}" data-sp="seg" aria-label="Greyscale model (TCM)" title="Greyscale model (TCM)" onclick="setSunpathMode('seg')">${SP_ICON_TCM}</button>
           </div>
-          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" src="${TCM_BASE+(sunpaths[sunpathMode]||sunpaths.photo||'')}" alt="${sid} sun path overlay"/></div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="tcmSunpathImg" ${sunpathImgAttrs(TCM_BASE,sid,sunpathMode,sunpaths[sunpathMode]||sunpaths.photo)} alt="${sid} sun path overlay"/></div>
         </div>
+        ${window.__mLite?'':`<div style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--muted)">${SUNPATH_TABLE_HTML}</div>`}
       </div>
       <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">How to read this</div>
-        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
-          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">${window.__mLite?SUNPATH_READ_HTML:SUNPATH_TEXT_HTML}
         </div>
       </div>
     </div>
@@ -2470,7 +2545,7 @@ function setGrSunpathMode(mode){
   grSunpathMode=mode;
   const img=document.getElementById('grTcmSunpathImg');
   const p=window._grSunpathPaths;
-  if(img && p && p[mode]) img.src=GTCM_BASE+p[mode];
+  if(img && window._grSunpathId) sunpathSet(img,GTCM_BASE,window._grSunpathId,mode,p&&p[mode]);
   document.querySelectorAll('.tcm-photo-btn[data-sp]').forEach(b=>b.classList.toggle('active', b.dataset.sp===mode));
 }
 function grCanopyPhotoToggleHtml(){
@@ -2542,7 +2617,7 @@ function renderGreeneryCanopy(cont,gid){
   window._grCanopyPhotoPaths=photos;
   const chartsMap=rec.tcm_charts||{};
   const sunpaths={photo:chartsMap.sunpath_transmittance_on_photo, seg:chartsMap.sunpath_transmittance_on_segmentation};
-  window._grSunpathPaths=sunpaths;
+  window._grSunpathPaths=sunpaths; window._grSunpathId=gidToGsId(gid);
   const svf=rec.svf_mean;
 
   cont.innerHTML=`
@@ -2578,16 +2653,15 @@ function renderGreeneryCanopy(cont,gid){
         <div class="chart-title">Annual sun path — canopy transmittance</div>
         <div class="tcm-photo-rel">
           <div class="tcm-photo-toggle">
-            <button class="tcm-photo-btn ${grSunpathMode==='photo'?'active':''}" data-sp="photo" onclick="setGrSunpathMode('photo')">📷 RGB</button>
-            <button class="tcm-photo-btn ${grSunpathMode==='seg'?'active':''}" data-sp="seg" onclick="setGrSunpathMode('seg')">🗺 TCM</button>
+            <button class="tcm-photo-btn sp-ico ${grSunpathMode==='photo'?'active':''}" data-sp="photo" aria-label="Colour photo (RGB)" title="Colour photo (RGB)" onclick="setGrSunpathMode('photo')">${SP_ICON_RGB}</button>
+            <button class="tcm-photo-btn sp-ico ${grSunpathMode==='seg'?'active':''}" data-sp="seg" aria-label="Greyscale model (TCM)" title="Greyscale model (TCM)" onclick="setGrSunpathMode('seg')">${SP_ICON_TCM}</button>
           </div>
-          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" src="${GTCM_BASE+(sunpaths[grSunpathMode]||sunpaths.photo||'')}" alt="${gid} sun path overlay"/></div>
+          <div class="tcm-photo-wrap" style="background:#fff"><img id="grTcmSunpathImg" ${sunpathImgAttrs(GTCM_BASE,gidToGsId(gid),grSunpathMode,sunpaths[grSunpathMode]||sunpaths.photo)} alt="${gid} sun path overlay"/></div>
         </div>
+        ${window.__mLite?'':`<div style="margin-top:12px;font-size:13px;line-height:1.7;color:var(--muted)">${SUNPATH_TABLE_HTML}</div>`}
       </div>
       <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">How to read this</div>
-        <div style="font-size:13px;line-height:1.7;color:var(--muted)">
-          Each loop traces the sun's position through one day, month by month across the year, as seen from the station looking around the horizon (S → W → N → E). Line colour = how much sunlight passes the canopy at that sun position: <b style="color:#b89b00">yellow ≈ open sky</b> (transmittance near 1), <b style="color:#2b1d8a">dark blue ≈ blocked</b> by trees or buildings (near 0). Dark segments mark the hours and seasons when this station sits in shade. Toggle 📷 RGB / 🗺 TCM to see the same paths over the real photo or the segmentation model it was computed from.
+        <div style="font-size:13px;line-height:1.7;color:var(--muted)">${window.__mLite?SUNPATH_READ_HTML:SUNPATH_TEXT_HTML}
           <br><br>
           This site has no pyranometer, so its shade estimate hasn't been checked against measured solar radiation on the ground here. The same modeling approach has been validated at the WS network's 31 ground stations, which do carry pyranometers — canopy-adjusted transmittance tracked measured solar radiation well at most of those stations (agreement varied by site), supporting its use as a reasonable proxy for ground-level solar radiation at greenery sites like this one.
         </div>
@@ -2915,6 +2989,14 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
   const H=plotH+PT+PB;
   canvas.width=W; canvas.height=H;
   ctx.clearRect(0,0,W,H);
+  if(!window.__mLite){ const dpr=Math.max(1,Math.min(window.devicePixelRatio||1,3)); canvas.width=Math.round(W*dpr); canvas.height=Math.round(H*dpr); canvas.style.width=W+'px'; canvas.style.height=H+'px'; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); }
+  canvas._hmDraw=[canvasId,data2d,cmap,yLabels,hmRange,cbId,unit,cbTicks,startHour,endHour,aspect]; canvas._hmLastW=W;
+  if(!window.__mLite && typeof ResizeObserver!=='undefined' && !canvas._hmRO && canvas.parentElement){
+    canvas._hmRO=new ResizeObserver(()=>{ if(canvas._hmRaf) return; canvas._hmRaf=requestAnimationFrame(()=>{ canvas._hmRaf=0;
+      const w=canvas.parentElement?canvas.parentElement.offsetWidth-4:0;
+      if(canvas.isConnected && w>80 && Math.abs(w-canvas._hmLastW)>8){ try{ drawHeatmapNew.apply(null,canvas._hmDraw); }catch(e){} } }); });
+    canvas._hmRO.observe(canvas.parentElement);
+  }
 
   const cellW=plotW/nCols, cellH=plotH/nRows;
   // Use cbTicks range if provided — ensures colorbar and cell colors share the same scale
@@ -2980,8 +3062,10 @@ function drawHeatmapNew(canvasId, data2d, cmap, yLabels, hmRange, cbId, unit, cb
     const barW=12, tickLen=5, lblOff=7;
     const totalW=barW+tickLen+36;
     const totalH=cbH+PAD*2;
-    cb.height=totalH; cb.width=totalW;
+    const dprC=Math.max(1,Math.min(window.devicePixelRatio||1,3));
+    cb.height=Math.round(totalH*dprC); cb.width=Math.round(totalW*dprC); cb.style.width=totalW+'px'; cb.style.height=totalH+'px';
     const cctx=cb.getContext('2d');
+    cctx.setTransform(dprC,0,0,dprC,0,0);
     cctx.clearRect(0,0,totalW,totalH);
     // Gradient bar drawn with PAD offset at top
     const grad=cctx.createLinearGradient(0,PAD+cbH,0,PAD);
