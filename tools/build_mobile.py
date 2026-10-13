@@ -65,7 +65,6 @@ sub1('<meta name="viewport" content="width=device-width,initial-scale=1.0">', ''
   window.addEventListener('orientationchange',apply);
 })();
 </script>''')
-sub1('<title>BEAM Weather Station Dashboard', '<title>[MOBILE PROTOTYPE] BEAM Weather Station Dashboard')
 
 # ── 2. CSS ──────────────────────────────────────────────────────────────────
 CSS = crlf('''
@@ -176,7 +175,8 @@ html.m-lite #specModal>div>div:first-child button{min-width:44px;min-height:44px
 html.m-land .m-pop-grid{grid-template-columns:repeat(6,minmax(0,1fr));}
 html.m-land .m-pop button{min-height:38px;}
 /* one-line pointer to the desktop version, at the foot of the detail pane */
-html.m-lite .right-panel::after{content:"More features on desktop: Compare, Tree Canopy, Wind CFD";display:block;text-align:center;font-size:12px;line-height:1.4;color:var(--muted);padding:14px 8px 6px;}
+html.m-lite .m-deskfoot{text-align:center;font-size:12px;line-height:1.5;color:var(--muted);padding:14px 8px 18px;}
+html.m-lite .m-deskfoot a{color:var(--blue);font-weight:600;text-decoration:none;white-space:nowrap;}
 html.m-lite .hm-card canvas{max-width:100%;height:auto!important;}
 html.m-lite .right-panel{scrollbar-gutter:stable;}
 html.m-lite .hm-body{flex-direction:column;gap:2px;}
@@ -397,6 +397,11 @@ sub1("  const cb=document.getElementById(cbId);\n  if(cb){",
      "  const cb=document.getElementById(cbId);\n  if(cb && window.__mLite){ __hmColorbarH(cb,cmap,cbTicks,mn,mx,PL,plotW,W); }\n  else if(cb){")
 sub1("  ctx.fillText('Hour of Day', PL+plotW/2, PT+plotH+28);",
      "  ctx.fillText(window.__mLite ? `Hour of day (${startHour ?? 0} to ${endHour ?? 23})` : 'Hour of Day', PL+plotW/2, PT+plotH+28);")
+
+import re as _re
+_n=len(s)
+s=_re.sub(r'<script>/\* One link for everyone.*?</script>\r?\n','',s,count=1,flags=_re.S)
+assert len(s)<_n, 'redirect script not found in index.html'
 
 # ── 3b. CARTO basemap API key (required for raster tiles since 25 Sep 2026) ──
 # Public client-side key, restricted by nothing. Skipped automatically once index.html carries a key itself.
@@ -736,6 +741,7 @@ TAIL = crlf('''<script>
       var rg=window.renderGreeneryCanopy;
       window.renderGreeneryCanopy=function(c,g){canopyPhotoMode='segmented';if(!gsRgbOk())grSunpathMode='seg';rg(c,g);mTabs(c,true);};
     })();
+    (function(){var rp=document.getElementById('rightPanel');if(!rp)return;function put(){if(rp.querySelector(':scope > .m-deskfoot'))return;var d=document.createElement('div');d.className='m-deskfoot';d.innerHTML='Compare, Overall and Wind CFD are on the desktop version. <a href="index.html?desktop=1">Open desktop version</a>';rp.appendChild(d);}put();new MutationObserver(put).observe(rp,{childList:true});})();
     var ns=document.querySelector('.no-sel div:last-child');
     if(ns)ns.textContent='Tap any marker to explore weather data.';
   }

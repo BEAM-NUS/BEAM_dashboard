@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>/* One link for everyone: phones are sent to mobile.html. Add ?desktop=1 to the link to stay on the full dashboard. */
+(function(){try{
+  if(/mobile\.html$/i.test(location.pathname))return;   // never redirect from the mobile page itself
+  var q=new URLSearchParams(location.search);
+  if(q.get('desktop')==='1'){try{sessionStorage.setItem('beamDesktop','1');}catch(e){}return;}
+  try{if(sessionStorage.getItem('beamDesktop')==='1')return;}catch(e){}
+  var phone=/iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|Opera Mini/i.test(navigator.userAgent||'')&&Math.min(screen.width,screen.height)<=600;
+  if(phone)location.replace('mobile.html'+location.search+location.hash);
+}catch(e){}})();
+</script>
 <title>BEAM Weather Station Dashboard — NUS Campus 2024–2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

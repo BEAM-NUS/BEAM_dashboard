@@ -55,7 +55,7 @@
   window.addEventListener('orientationchange',apply);
 })();
 </script>
-<title>[MOBILE PROTOTYPE] BEAM Weather Station Dashboard — NUS Campus 2024–2026</title>
+<title>BEAM Weather Station Dashboard — NUS Campus 2024–2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -345,7 +345,8 @@ html.m-lite #specModal>div>div:first-child button{min-width:44px;min-height:44px
 html.m-land .m-pop-grid{grid-template-columns:repeat(6,minmax(0,1fr));}
 html.m-land .m-pop button{min-height:38px;}
 /* one-line pointer to the desktop version, at the foot of the detail pane */
-html.m-lite .right-panel::after{content:"More features on desktop: Compare, Tree Canopy, Wind CFD";display:block;text-align:center;font-size:12px;line-height:1.4;color:var(--muted);padding:14px 8px 6px;}
+html.m-lite .m-deskfoot{text-align:center;font-size:12px;line-height:1.5;color:var(--muted);padding:14px 8px 18px;}
+html.m-lite .m-deskfoot a{color:var(--blue);font-weight:600;text-decoration:none;white-space:nowrap;}
 html.m-lite .hm-card canvas{max-width:100%;height:auto!important;}
 html.m-lite .right-panel{scrollbar-gutter:stable;}
 html.m-lite .hm-body{flex-direction:column;gap:2px;}
@@ -3742,6 +3743,7 @@ loadData();
       var rg=window.renderGreeneryCanopy;
       window.renderGreeneryCanopy=function(c,g){canopyPhotoMode='segmented';if(!gsRgbOk())grSunpathMode='seg';rg(c,g);mTabs(c,true);};
     })();
+    (function(){var rp=document.getElementById('rightPanel');if(!rp)return;function put(){if(rp.querySelector(':scope > .m-deskfoot'))return;var d=document.createElement('div');d.className='m-deskfoot';d.innerHTML='Compare, Overall and Wind CFD are on the desktop version. <a href="index.html?desktop=1">Open desktop version</a>';rp.appendChild(d);}put();new MutationObserver(put).observe(rp,{childList:true});})();
     var ns=document.querySelector('.no-sel div:last-child');
     if(ns)ns.textContent='Tap any marker to explore weather data.';
   }
